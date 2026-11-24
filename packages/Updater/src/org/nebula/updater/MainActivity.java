@@ -41,7 +41,8 @@ public class MainActivity extends Activity {
     private static final int REQUEST_LOCAL_UPDATE = 1001;
 
     // Official GitHub OTA Manifest Endpoints
-    public static final String OTA_URL = "https://raw.githubusercontent.com/xstacy666/NebulaOS_ruan_ota/main/ota.json";
+    public static final String OTA_URL = "https://api.github.com/repos/xstacy666/NebulaOS_ruan_ota/contents/ota.json";
+    public static final String RAW_OTA_URL = "https://raw.githubusercontent.com/xstacy666/NebulaOS_ruan_ota/main/ota.json";
     private static final String FALLBACK_OTA_URL = "https://raw.githubusercontent.com/xstacy666/AERA-ruan/main/ota.json";
 
     public static final String DEFAULT_UPDATE_FILE = "ColorOS17_ruan_dizi_Update.zip";
@@ -398,6 +399,7 @@ public class MainActivity extends Activity {
                     conn.setReadTimeout(8000);
                     conn.setRequestMethod("GET");
                     conn.setRequestProperty("User-Agent", "NebulaOS-Updater/17.0");
+                    conn.setRequestProperty("Accept", "application/vnd.github.v3.raw, application/json, */*");
 
                     int code = conn.getResponseCode();
                     if (code == HttpURLConnection.HTTP_OK) {

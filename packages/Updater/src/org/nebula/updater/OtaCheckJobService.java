@@ -49,6 +49,7 @@ public class OtaCheckJobService extends JobService {
 
             // 2. Query remote GitHub OTA manifest
             String[] urls = {
+                "https://api.github.com/repos/xstacy666/NebulaOS_ruan_ota/contents/ota.json",
                 MainActivity.OTA_URL,
                 "https://raw.githubusercontent.com/xstacy666/AERA-ruan/main/ota.json"
             };
@@ -61,6 +62,7 @@ public class OtaCheckJobService extends JobService {
                     conn.setReadTimeout(8000);
                     conn.setRequestMethod("GET");
                     conn.setRequestProperty("User-Agent", "NebulaOS-Updater/17.0");
+                    conn.setRequestProperty("Accept", "application/vnd.github.v3.raw, application/json, */*");
 
                     if (conn.getResponseCode() == HttpURLConnection.HTTP_OK) {
                         BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
