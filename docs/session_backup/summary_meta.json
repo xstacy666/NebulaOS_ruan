@@ -1,0 +1,10 @@
+{
+  "conversation_id": "7598b521-2782-40ea-a37d-fb289e9b5705",
+  "title": "Gain ADB And Root Access",
+  "preview": "Gain ADB And Root Access",
+  "step_count": 14960,
+  "last_modified_time": "2026-11-24 20:09:38.394943136+00:00",
+  "workspace_uris": "[\"file:///data/user/0/ai.antigem/files/home/projects\"]",
+  "status": "CASCADE_RUN_STATUS_RUNNING",
+  "app_data_dir": "antigravity-cli"
+}
