@@ -17,7 +17,7 @@
   - `@Noble_actual117`
   - `@GAURAV_140110`
   - `@NotYoursAditya`
-  - `@Gignigga`
+  - `@Gigniggga`
   - `Team Nebula`
 
 ---
