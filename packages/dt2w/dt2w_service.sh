@@ -1,5 +1,6 @@
 #!/system/bin/sh
-# Native DT2W + DT2S + Quick Unlock service for Redmi Pad Pro 5G (ruan) / Novatek NT36532
+# Native DT2W + DT2S + Quick Unlock + Dynamic Device Identity Service
+# For POCO Pad 5G (ruan) & Redmi Pad Pro (dizi) / Novatek NT36532
 # Zero KernelSU dependency - Built into ColorOS 17 system_ext
 
 # Wait for system_server and SettingsProvider to be ready
@@ -23,11 +24,35 @@ settings put secure keyguard_disable_quick_unlock 0 2>/dev/null || true
 settings put secure double_tap_to_wake 1 2>/dev/null || true
 settings put system dt2s_enabled 1 2>/dev/null || true
 
-# Initialize device naming
-settings put global revise_device_name 'Redmi Pad Pro 5G' 2>/dev/null || true
-settings put global device_name 'Redmi Pad Pro 5G' 2>/dev/null || true
-settings put secure bluetooth_name 'Redmi Pad Pro 5G' 2>/dev/null || true
-settings put secure device_tether_name 'Redmi Pad Pro 5G' 2>/dev/null || true
+# Dynamic Device Identification:
+#   SIM variant (ruan): POCO Pad 5G / 24074PCD2I
+#   Wi-Fi variant (dizi): Redmi Pad Pro / 2405CRPFDL
+HWNAME="$(getprop ro.boot.hwname)"
+NORIL="$(getprop ro.radio.noril)"
+BASEBAND="$(getprop gsm.version.baseband)"
+
+if [ "$NORIL" = "yes" ] || [ "$HWNAME" = "dizi" ] || [ -z "$BASEBAND" ] || [ "$BASEBAND" = "null" ]; then
+    DEV_NAME="Redmi Pad Pro"
+    DEV_MODEL="2405CRPFDL"
+    DEV_MARKET="Redmi Pad Pro"
+else
+    DEV_NAME="Poco Pad 5G"
+    DEV_MODEL="24074PCD2I"
+    DEV_MARKET="Poco Pad 5G"
+fi
+
+# Apply systemwide device names
+settings put global device_name "$DEV_NAME" 2>/dev/null || true
+settings put global revise_device_name "$DEV_NAME" 2>/dev/null || true
+settings put system device_name "$DEV_NAME" 2>/dev/null || true
+settings put system oplus_customize_device_name "$DEV_NAME" 2>/dev/null || true
+settings put secure bluetooth_name "$DEV_NAME" 2>/dev/null || true
+settings put secure device_tether_name "$DEV_NAME" 2>/dev/null || true
+
+# Apply persistent and runtime properties
+setprop persist.sys.device_name "$DEV_NAME" 2>/dev/null || true
+setprop bluetooth.device.default_name "$DEV_NAME" 2>/dev/null || true
+setprop ro.config.device_name "$DEV_NAME" 2>/dev/null || true
 
 # Ensure thermal config is active
 echo 0 > /sys/class/thermal/thermal_message/sconfig 2>/dev/null || true

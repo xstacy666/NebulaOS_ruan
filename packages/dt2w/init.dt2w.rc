@@ -1,8 +1,21 @@
+# Native DT2W + Dynamic Device Identity Service for Redmi Pad Pro / POCO Pad 5G
 service dt2w_service /system/system_ext/bin/dt2w_service.sh
     class late_start
     user root
     group root system input
     disabled
+
+on property:ro.boot.hwname=ruan
+    setprop persist.sys.device_name "Poco Pad 5G"
+    setprop ro.product.marketname "Poco Pad 5G"
+    setprop ro.vendor.oplus.market.name "Poco Pad 5G"
+    setprop ro.vendor.oplus.market.enname "Poco Pad 5G"
+
+on property:ro.boot.hwname=dizi
+    setprop persist.sys.device_name "Redmi Pad Pro"
+    setprop ro.product.marketname "Redmi Pad Pro"
+    setprop ro.vendor.oplus.market.name "Redmi Pad Pro"
+    setprop ro.vendor.oplus.market.enname "Redmi Pad Pro"
 
 on property:sys.boot_completed=1
     start dt2w_service
