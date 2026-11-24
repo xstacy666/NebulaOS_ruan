@@ -15,7 +15,7 @@
 - **Lead Maintainer**: [Øpium | Team Nebula](https://github.com/xstacy666) (`xstacy666`)
 - **Core Contributors & Testing**: 
   - `@Noble_actual117`
-  - `@GAURA_140110`
+  - `@GAURAV_140110`
   - `@NotYoursAditya`
   - `@Gignigga`
   - `Team Nebula`
