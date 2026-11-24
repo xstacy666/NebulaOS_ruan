@@ -3,7 +3,7 @@
 <p align="center">
   <img src="packages/Updater/res/drawable-nodpi-v4/nebula_logo.jpg" width="180" height="180" alt="Nebula OS Logo" style="border-radius: 36px;"/>
   <br/>
-  <b>Powered by ColorOS 17 (Android 15)</b>
+  <b>Powered by ColorOS 17 (Android 17)</b>
   <br/>
   <i>Crafted for Redmi Pad Pro 5G (<code>ruan</code>) & Redmi Pad Pro / POCO Pad Wi-Fi (<code>dizi</code>)</i>
 </p>
