@@ -85,7 +85,7 @@ Every single feature in this port has been engineered directly into the **read-o
 
 ## 💻 Flashing Instructions
 
-1. Download the latest Fastboot ROM package: `ColorOS17_RedmiPadPro_ruan_dizi_Fastboot.7z`.
+1. Download the latest Fastboot ROM package: `ColorOS17_Android17_RedmiPadPro_ruan_dizi_Fastboot_v105.7z`.
 2. Extract the archive completely.
 3. Reboot your tablet to Fastboot mode:
    ```bash
@@ -99,6 +99,33 @@ Every single feature in this port has been engineered directly into the **read-o
      ./flash.sh
      ```
 5. The script flashes all partitions, wipes userdata for a clean boot, and reboots into Nebula OS.
+
+---
+
+## ☁️ Cloud Downloads & AI Cross-Device Sync
+
+### 📦 Fastboot ROM Package (Google Drive)
+- **Latest Build (3.84 GB)**: `ColorOS17_Android17_RedmiPadPro_ruan_dizi_Fastboot_v105.7z`
+- **Location**: Google Drive **`Rom port`** folder (Account: `hardikmpatil@gmail.com`).
+- **MD5**: `5a424f8d00eb1f0a125a8db354ca414d`
+- **SHA-256**: `56c6311b94215e17a984a91b100873cbd286eb68bfb8ec464e10f4ab7d7bd642`
+
+### 🔄 AntiGem / Antigravity AI Cross-Device Session Sync
+To sync this entire development session, memory, and chat history onto your phone:
+
+1. Clone this repository on your phone:
+   ```bash
+   git clone https://github.com/xstacy666/NebulaOS_ruan.git
+   cd NebulaOS_ruan
+   ```
+2. Run the 1-click restore script:
+   ```bash
+   bash scripts/restore_session.sh
+   ```
+3. Open **AntiGem** on your phone — the conversation **"Gain ADB And Root Access"** will appear right in your chat list with every single turn, thought, and artifact intact!
+
+- **Full Human-Readable Transcript**: [`docs/FULL_CONVERSATION_HISTORY.md`](docs/FULL_CONVERSATION_HISTORY.md)
+- **Session Binary Backup**: [`docs/session_backup/`](docs/session_backup/)
 
 ---
 
