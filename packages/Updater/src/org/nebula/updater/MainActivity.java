@@ -44,8 +44,7 @@ public class MainActivity extends Activity {
     public static final String OTA_URL = "https://raw.githubusercontent.com/xstacy666/NebulaOS_ruan_ota/main/ota.json";
     private static final String FALLBACK_OTA_URL = "https://raw.githubusercontent.com/xstacy666/AERA-ruan/main/ota.json";
 
-    public static final String UPDATE_FILE_NAME = "ColorOS17_ruan_dizi_Update.zip";
-    public static final File UPDATE_DEST = new File("/sdcard/Download/" + UPDATE_FILE_NAME);
+    public static final String DEFAULT_UPDATE_FILE = "ColorOS17_ruan_dizi_Update.zip";
 
     private TextView tvCurrentVersion;
     private TextView tvBuildId;
@@ -66,6 +65,8 @@ public class MainActivity extends Activity {
     private String mDownloadUrl = "";
     private String mChangelog = "";
     private long mFileSize = 0;
+    private String mFileName = DEFAULT_UPDATE_FILE;
+    private File mUpdateDest = new File("/sdcard/Download/" + DEFAULT_UPDATE_FILE);
     private boolean mHasUpdate = false;
     private boolean mIsDownloaded = false;
     private boolean mIsDownloading = false;
@@ -109,7 +110,11 @@ public class MainActivity extends Activity {
 
         btnAction.setOnClickListener(v -> {
             if (mIsDownloaded) {
-                confirmInstall(UPDATE_DEST.getAbsolutePath());
+                if (mFileName.endsWith(".apk")) {
+                    installApk(mUpdateDest.getAbsolutePath());
+                } else {
+                    confirmInstall(mUpdateDest.getAbsolutePath());
+                }
             } else if (mIsDownloading) {
                 confirmCancelDownload();
             } else if (mHasUpdate) {
@@ -119,18 +124,28 @@ public class MainActivity extends Activity {
             }
         });
 
-        // Check if update file already exists in Download and is intact (>1MB)
-        if (UPDATE_DEST.exists() && UPDATE_DEST.length() > 1048576) {
-            mIsDownloaded = true;
-            tvStatusTitle.setText("Update Ready to Install");
-            long mb = UPDATE_DEST.length() / (1024 * 1024);
-            tvStatusDesc.setText("Recovery package ready in Download: " + mb + " MB");
-            btnAction.setText("Install via OrangeFox Recovery");
-            btnAction.setBackgroundResource(R.drawable.bg_ios_glass_button_primary);
-        }
+        // Check if update file already exists in Download and is intact (>10KB)
+        checkExistingDownloadedFile();
 
         // Process Intent extras (e.g. from Notification)
         handleIntent(getIntent());
+    }
+
+    private void checkExistingDownloadedFile() {
+        if (mUpdateDest.exists() && mUpdateDest.length() > 10240) {
+            mIsDownloaded = true;
+            tvStatusTitle.setText("Update Ready to Install");
+            long sizeKb = mUpdateDest.length() / 1024;
+            String sizeStr = sizeKb > 1024 ? (sizeKb / 1024) + " MB" : sizeKb + " KB";
+            tvStatusDesc.setText("Package ready in Download: " + sizeStr);
+
+            if (mFileName.endsWith(".apk")) {
+                btnAction.setText("Install Update (.apk)");
+            } else {
+                btnAction.setText("Install via OrangeFox Recovery");
+            }
+            btnAction.setBackgroundResource(R.drawable.bg_ios_glass_button_primary);
+        }
     }
 
     @Override
@@ -155,12 +170,17 @@ public class MainActivity extends Activity {
         boolean autoDownload = intent.getBooleanExtra("auto_download", false);
         String targetUrl = intent.getStringExtra("target_url");
         String version = intent.getStringExtra("version");
+        String filename = intent.getStringExtra("filename");
 
         if (targetUrl != null && !targetUrl.isEmpty()) {
             mDownloadUrl = targetUrl;
         }
         if (version != null && !version.isEmpty()) {
             mLatestVersion = version;
+        }
+        if (filename != null && !filename.isEmpty()) {
+            mFileName = filename;
+            mUpdateDest = new File("/sdcard/Download/" + mFileName);
         }
 
         if (autoDownload && !mDownloadUrl.isEmpty() && !mIsDownloaded && !mIsDownloading) {
@@ -218,7 +238,7 @@ public class MainActivity extends Activity {
 
     private void showMoreOptions() {
         String[] options = {
-            "Local update (Select .zip)",
+            "Local update (Select .zip or .apk)",
             "Check for updates",
             "Open Download link in Browser",
             "Delete downloaded update",
@@ -264,7 +284,7 @@ public class MainActivity extends Activity {
         intent.setType("*/*");
         intent.addCategory(Intent.CATEGORY_OPENABLE);
         try {
-            startActivityForResult(Intent.createChooser(intent, "Select Recovery Update ZIP"), REQUEST_LOCAL_UPDATE);
+            startActivityForResult(Intent.createChooser(intent, "Select Update Package"), REQUEST_LOCAL_UPDATE);
         } catch (Exception e) {
             Toast.makeText(this, "No file manager found: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
@@ -296,7 +316,11 @@ public class MainActivity extends Activity {
         }
 
         if (path != null && new File(path).exists()) {
-            confirmInstall(path);
+            if (path.endsWith(".apk")) {
+                installApk(path);
+            } else {
+                confirmInstall(path);
+            }
         } else {
             Toast.makeText(this, "Could not resolve file path: " + uri, Toast.LENGTH_LONG).show();
         }
@@ -314,17 +338,21 @@ public class MainActivity extends Activity {
             out.close();
             return dest.getAbsolutePath();
         } catch (Exception e) {
-            Log.e(TAG, "Failed to copy local zip", e);
+            Log.e(TAG, "Failed to copy local package", e);
             return null;
         }
     }
 
     private void deleteDownloadedUpdate() {
         boolean anyDeleted = false;
-        if (UPDATE_DEST.exists()) {
-            anyDeleted = UPDATE_DEST.delete();
+        if (mUpdateDest.exists()) {
+            anyDeleted = mUpdateDest.delete();
         }
-        File tmp = new File(UPDATE_DEST.getAbsolutePath() + ".tmp");
+        File defaultZip = new File("/sdcard/Download/" + DEFAULT_UPDATE_FILE);
+        if (defaultZip.exists()) {
+            anyDeleted |= defaultZip.delete();
+        }
+        File tmp = new File(mUpdateDest.getAbsolutePath() + ".tmp");
         if (tmp.exists()) {
             tmp.delete();
         }
@@ -364,7 +392,7 @@ public class MainActivity extends Activity {
         protected JSONObject doInBackground(String... urls) {
             for (String targetUrl : urls) {
                 try {
-                    URL url = new URL(targetUrl);
+                    String queryUrl = targetUrl + "?t=" + System.currentTimeMillis(); URL url = new URL(queryUrl);
                     HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                     conn.setConnectTimeout(8000);
                     conn.setReadTimeout(8000);
@@ -402,20 +430,25 @@ public class MainActivity extends Activity {
                 mDownloadUrl = update.optString("url", "");
                 mChangelog = update.optString("changelog", "System improvements and performance optimizations.");
                 mFileSize = update.optLong("size", 0);
+                mFileName = update.optString("filename", DEFAULT_UPDATE_FILE);
+                mUpdateDest = new File("/sdcard/Download/" + mFileName);
 
                 if (isNewUpdate(mLatestVersion, mLatestVersionCode)) {
                     mHasUpdate = true;
                     tvStatusTitle.setText(versionName);
-                    String sizeText = mFileSize > 0 ? " • " + (mFileSize / (1024 * 1024)) + " MB" : "";
+                    String sizeText = "";
+                    if (mFileSize > 1048576) {
+                        sizeText = " • " + (mFileSize / (1024 * 1024)) + " MB";
+                    } else if (mFileSize > 0) {
+                        sizeText = " • " + (mFileSize / 1024) + " KB";
+                    }
                     tvStatusDesc.setText("New build available" + sizeText);
 
                     tvChangelog.setText(mChangelog);
                     layoutChangelogBox.setVisibility(View.VISIBLE);
 
-                    if (mIsDownloaded) {
-                        btnAction.setText("Install via OrangeFox Recovery");
-                        btnAction.setBackgroundResource(R.drawable.bg_ios_glass_button_primary);
-                    } else {
+                    checkExistingDownloadedFile();
+                    if (!mIsDownloaded) {
                         btnAction.setText("Download Update");
                         btnAction.setBackgroundResource(R.drawable.bg_ios_glass_button_primary);
                     }
@@ -461,7 +494,7 @@ public class MainActivity extends Activity {
         pbDownload.setVisibility(View.VISIBLE);
         tvProgress.setVisibility(View.VISIBLE);
         pbDownload.setProgress(0);
-        tvProgress.setText("Connecting to Google Drive...");
+        tvProgress.setText("Connecting to download server...");
 
         mCurrentDownloadTask = new DownloadTask();
         mCurrentDownloadTask.execute(mDownloadUrl);
@@ -491,7 +524,7 @@ public class MainActivity extends Activity {
         Toast.makeText(this, "Download cancelled", Toast.LENGTH_SHORT).show();
 
         // Clean up partial .tmp file
-        File tmp = new File(UPDATE_DEST.getAbsolutePath() + ".tmp");
+        File tmp = new File(mUpdateDest.getAbsolutePath() + ".tmp");
         if (tmp.exists()) {
             tmp.delete();
         }
@@ -515,7 +548,7 @@ public class MainActivity extends Activity {
                 String currentUrl = urls[0];
                 Log.i(TAG, "Starting OTA download: " + currentUrl);
 
-                // 1. Resolve direct Google Drive link
+                // 1. Resolve direct Google Drive link if applicable
                 String resolvedUrl = resolveGoogleDriveStreamUrl(currentUrl);
 
                 int redirects = 0;
@@ -552,7 +585,7 @@ public class MainActivity extends Activity {
                 Log.i(TAG, "Connection established. Content-Type: " + contentType + ", Code: " + conn.getResponseCode());
 
                 // If Google Drive returned the virus scan warning HTML page, parse the confirmation link
-                if (contentType != null && contentType.toLowerCase(Locale.ROOT).contains("text/html")) {
+                if (contentType != null && contentType.toLowerCase(Locale.ROOT).contains("text/html") && resolvedUrl.contains("drive.google")) {
                     Log.i(TAG, "Received HTML page from Google Drive, parsing virus confirmation...");
                     String confirmationUrl = parseGoogleDriveConfirmation(conn, resolvedUrl);
                     conn.disconnect();
@@ -587,7 +620,7 @@ public class MainActivity extends Activity {
                 }
 
                 in = conn.getInputStream();
-                mTempFile = new File(UPDATE_DEST.getAbsolutePath() + ".tmp");
+                mTempFile = new File(mUpdateDest.getAbsolutePath() + ".tmp");
                 mTempFile.getParentFile().mkdirs();
                 out = new FileOutputStream(mTempFile);
 
@@ -625,12 +658,12 @@ public class MainActivity extends Activity {
                     return false;
                 }
 
-                // Sanity check: Ensure downloaded file is > 1MB and rename .tmp
-                if (mTempFile.exists() && mTempFile.length() > 1048576) {
-                    if (UPDATE_DEST.exists()) {
-                        UPDATE_DEST.delete();
+                // Sanity check: Ensure downloaded file is valid (>5KB) and rename .tmp
+                if (mTempFile.exists() && mTempFile.length() > 5120) {
+                    if (mUpdateDest.exists()) {
+                        mUpdateDest.delete();
                     }
-                    boolean renamed = mTempFile.renameTo(UPDATE_DEST);
+                    boolean renamed = mTempFile.renameTo(mUpdateDest);
                     if (renamed) {
                         return true;
                     } else {
@@ -734,12 +767,20 @@ public class MainActivity extends Activity {
             double speed = (Double) values[3];
 
             pbDownload.setProgress(percent);
-            long totalMb = total / (1024 * 1024);
-            long lengthMb = length / (1024 * 1024);
 
-            String text = String.format(Locale.getDefault(), "Downloading: %d%% (%d / %d MB) • %.1f MB/s",
-                    percent, totalMb, lengthMb, speed);
-            tvProgress.setText(text);
+            String progressText;
+            if (length > 1048576) {
+                long totalMb = total / (1024 * 1024);
+                long lengthMb = length / (1024 * 1024);
+                progressText = String.format(Locale.getDefault(), "Downloading: %d%% (%d / %d MB) • %.1f MB/s",
+                        percent, totalMb, lengthMb, speed);
+            } else {
+                long totalKb = total / 1024;
+                long lengthKb = length / 1024;
+                progressText = String.format(Locale.getDefault(), "Downloading: %d%% (%d / %d KB) • %.1f MB/s",
+                        percent, totalKb, lengthKb, speed);
+            }
+            tvProgress.setText(progressText);
         }
 
         @Override
@@ -767,9 +808,15 @@ public class MainActivity extends Activity {
             if (success) {
                 mIsDownloaded = true;
                 tvStatusTitle.setText("Update Ready to Install");
-                long mb = UPDATE_DEST.length() / (1024 * 1024);
-                tvStatusDesc.setText("Recovery package downloaded (" + mb + " MB)");
-                btnAction.setText("Install via OrangeFox Recovery");
+                long sizeKb = mUpdateDest.length() / 1024;
+                String sizeStr = sizeKb > 1024 ? (sizeKb / 1024) + " MB" : sizeKb + " KB";
+                tvStatusDesc.setText("Package downloaded (" + sizeStr + ")");
+
+                if (mFileName.endsWith(".apk")) {
+                    btnAction.setText("Install Update (.apk)");
+                } else {
+                    btnAction.setText("Install via OrangeFox Recovery");
+                }
                 btnAction.setBackgroundResource(R.drawable.bg_ios_glass_button_primary);
                 Toast.makeText(MainActivity.this, "Download completed!", Toast.LENGTH_SHORT).show();
             } else {
@@ -786,6 +833,32 @@ public class MainActivity extends Activity {
                 .setTitle("Download Issue")
                 .setMessage(error + "\n\nWould you like to open the download link in your browser instead?")
                 .setPositiveButton("Open in Browser", (d, w) -> openUrlInBrowser())
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void installApk(String apkPath) {
+        File apkFile = new File(apkPath);
+        if (!apkFile.exists()) {
+            Toast.makeText(this, "APK not found: " + apkPath, Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        new AlertDialog.Builder(this)
+                .setTitle("Install Nebula OS Update")
+                .setMessage("A system app update is ready to install.\n\nPackage:\n" + apkFile.getName() + " (" + (apkFile.length() / 1024) + " KB)\n\nProceed to install?")
+                .setPositiveButton("Install", (d, w) -> {
+                    try {
+                        Intent intent = new Intent(Intent.ACTION_VIEW);
+                        Uri apkUri = Uri.parse("content://org.nebula.updater.provider" + apkFile.getAbsolutePath());
+                        intent.setDataAndType(apkUri, "application/vnd.android.package-archive");
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                        startActivity(intent);
+                    } catch (Exception e) {
+                        Log.w(TAG, "Direct intent install failed: " + e.getMessage());
+                        Toast.makeText(MainActivity.this, "Opening installer: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    }
+                })
                 .setNegativeButton("Cancel", null)
                 .show();
     }

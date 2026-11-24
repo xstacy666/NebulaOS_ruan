@@ -55,7 +55,7 @@ public class OtaCheckJobService extends JobService {
 
             for (String targetUrl : urls) {
                 try {
-                    URL url = new URL(targetUrl);
+                    String queryUrl = targetUrl + "?t=" + System.currentTimeMillis(); URL url = new URL(queryUrl);
                     HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                     conn.setConnectTimeout(8000);
                     conn.setReadTimeout(8000);
