@@ -19,93 +19,76 @@ else
 fi
 
 echo "=========================================================="
-echo "  Nebula OS • Antigravity AI Cross-Device Session Sync"
+echo "  Nebula OS • AntiGem AI Cross-Device Session Sync"
 echo "  Conversation ID: $CONV_ID"
 echo "  Target App Directory: $CLI_DIR"
 echo "=========================================================="
 echo ""
 
+# Ensure workspace folder exists
+mkdir -p "$HOME/projects"
+mkdir -p "$CLI_DIR/brain/$CONV_ID"
+mkdir -p "$CLI_DIR/conversations"
+
 BRAIN_TAR="$BACKUP_DIR/brain_session_backup.tar.gz"
 CONV_TAR="$BACKUP_DIR/conversation_db_backup.tar.gz"
-META_JSON="$BACKUP_DIR/summary_meta.json"
+SUM_DB="$BACKUP_DIR/conversation_summaries.db"
+AGY_PB="$BACKUP_DIR/agyhub_summaries_proto.pb"
+JET_PB="$BACKUP_DIR/jetbox_summaries_proto.pb"
 
 if [ ! -f "$BRAIN_TAR" ]; then
     echo "ERROR: Brain backup archive not found at $BRAIN_TAR"
     exit 1
 fi
 
-echo "-> 1. Restoring Brain session memory (transcripts, artifacts, steps)..."
-mkdir -p "$CLI_DIR/brain/$CONV_ID"
+echo "-> 1. Stopping background daemons to unlock databases..."
+pkill -f "agy --hub" 2>/dev/null || true
+pkill -f "agy_ide_bridge" 2>/dev/null || true
+
+echo "-> 2. Restoring Brain session memory (transcripts, artifacts, steps)..."
 tar -xzf "$BRAIN_TAR" -C "$CLI_DIR/brain/$CONV_ID"
 
 if [ -f "$CONV_TAR" ]; then
-    echo "-> 2. Restoring Conversation Database into app data..."
-    mkdir -p "$CLI_DIR/conversations"
+    echo "-> 3. Restoring Conversation Database into app data..."
     tar -xzf "$CONV_TAR" -C "$CLI_DIR/conversations"
 fi
 
-if [ -f "$META_JSON" ]; then
-    echo "-> 3. Registering conversation into sidebar index..."
+if [ -f "$SUM_DB" ]; then
+    echo "-> 4. Registering conversation into sidebar index (full protobuf BLOB)..."
     python3 -c "
-import sqlite3, json, os
-
-db_path = os.path.join('$CLI_DIR', 'conversation_summaries.db')
-if not os.path.exists(db_path):
-    conn = sqlite3.connect(db_path)
-    conn.execute('''CREATE TABLE IF NOT EXISTS conversation_summaries (
-        conversation_id TEXT PRIMARY KEY,
-        title TEXT,
-        preview TEXT,
-        step_count INTEGER,
-        last_modified_time datetime,
-        workspace_uris TEXT,
-        status TEXT,
-        source TEXT DEFAULT '',
-        project_id TEXT DEFAULT '',
-        agent_name TEXT DEFAULT '',
-        parent_conversation_id TEXT DEFAULT '',
-        nesting_depth INTEGER DEFAULT 0,
-        battle_id TEXT DEFAULT '',
-        winning_conversation_id TEXT DEFAULT '',
-        not_fully_idle NUMERIC DEFAULT 0,
-        killed NUMERIC DEFAULT 0,
-        last_user_input_time datetime,
-        last_user_input_step_index INTEGER DEFAULT -1,
-        app_data_dir TEXT DEFAULT 'antigravity-cli',
-        raw_summary BLOB,
-        group_id TEXT DEFAULT ''
-    )''')
-else:
-    conn = sqlite3.connect(db_path)
-
-with open('$META_JSON', 'r') as f:
-    meta = json.load(f)
-
-conn.execute('''INSERT OR REPLACE INTO conversation_summaries 
-    (conversation_id, title, preview, step_count, last_modified_time, workspace_uris, status, app_data_dir)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)''', (
-    meta['conversation_id'],
-    meta['title'],
-    meta['preview'],
-    meta['step_count'],
-    meta['last_modified_time'],
-    meta['workspace_uris'],
-    meta['status'],
-    meta['app_data_dir']
-))
+import sqlite3, os
+dest_db = os.path.join('$CLI_DIR', 'conversation_summaries.db')
+src_db = '$SUM_DB'
+conn = sqlite3.connect(dest_db)
+conn.execute('ATTACH DATABASE ? AS src', (src_db,))
+conn.execute('CREATE TABLE IF NOT EXISTS conversation_summaries AS SELECT * FROM src.conversation_summaries WHERE 1=0')
+conn.execute('INSERT OR REPLACE INTO conversation_summaries SELECT * FROM src.conversation_summaries WHERE conversation_id=\"$CONV_ID\"')
 conn.commit()
 conn.close()
-print('Registered successfully in conversation_summaries.db')
-" 2>/dev/null || echo "Note: Python index registration skipped (conversation will still load directly)."
+print('-> Success: conversation_summaries.db updated with full metadata.')
+" 2>/dev/null || cp "$SUM_DB" "$CLI_DIR/conversation_summaries.db"
 fi
 
-echo "-> 4. Applying secure permissions..."
+echo "-> 5. Restoring summary proto buffers for instant launcher discovery..."
+[ -f "$AGY_PB" ] && [ ! -f "$CLI_DIR/agyhub_summaries_proto.pb" ] && cp "$AGY_PB" "$CLI_DIR/"
+[ -f "$JET_PB" ] && [ ! -f "$CLI_DIR/jetbox_summaries_proto.pb" ] && cp "$JET_PB" "$CLI_DIR/"
+# Also copy if target has smaller size
+if [ -f "$AGY_PB" ] && [ $(stat -c%s "$CLI_DIR/agyhub_summaries_proto.pb" 2>/dev/null || echo 0) -lt 500 ]; then
+    cp "$AGY_PB" "$CLI_DIR/"
+fi
+if [ -f "$JET_PB" ] && [ $(stat -c%s "$CLI_DIR/jetbox_summaries_proto.pb" 2>/dev/null || echo 0) -lt 200 ]; then
+    cp "$JET_PB" "$CLI_DIR/"
+fi
+
+echo "-> 6. Setting permissions..."
 chmod -R 700 "$CLI_DIR/brain/$CONV_ID"
 [ -f "$CLI_DIR/conversations/$CONV_ID.db" ] && chmod 600 "$CLI_DIR/conversations/$CONV_ID.db"
+[ -f "$CLI_DIR/conversation_summaries.db" ] && chmod 600 "$CLI_DIR/conversation_summaries.db"
 
 echo ""
 echo "=========================================================="
 echo "SUCCESS: AntiGem AI session fully synced to this device!"
-echo "Open AntiGem now — 'Gain ADB And Root Access' will be right"
-echo "in your chats, with every thought, artifact, and message!"
+echo "Now restart the AntiGem app on your phone."
+echo "Your conversation 'Gain ADB And Root Access' will be right"
+echo "there in your chats ready to continue!"
 echo "=========================================================="
