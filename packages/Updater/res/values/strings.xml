@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">System Updates</string>
+    <string name="rom_title">ColorOS 17 • Team Nebula</string>
+    <string name="target_device">Redmi Pad Pro / 5G (ruan / dizi)</string>
+    <string name="check_updates">Check for Updates</string>
+    <string name="download_update">Download Update</string>
+    <string name="install_update">Install via OrangeFox Recovery</string>
+    <string name="up_to_date">Your system is up to date</string>
+    <string name="update_available">New Update Available</string>
+</resources>

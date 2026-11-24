@@ -1,0 +1,31 @@
+service voice_call_on /system/system_ext/bin/voice_call_helper.sh 2
+    class core
+    user root
+    group root system audio
+    disabled
+    oneshot
+
+service voice_call_off /system/system_ext/bin/voice_call_helper.sh 1
+    class core
+    user root
+    group root system audio
+    disabled
+    oneshot
+
+service voice_call_helper /system/system_ext/bin/voice_call_helper.sh
+    class core
+    user root
+    group root system audio
+    disabled
+
+on property:sys.boot_completed=1
+    start voice_call_helper
+
+on property:sys.oplus.call_exist=1
+    start voice_call_on
+
+on property:sys.oplus.call_exist=2
+    start voice_call_on
+
+on property:sys.oplus.call_exist=0
+    start voice_call_off

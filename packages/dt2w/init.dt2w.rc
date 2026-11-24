@@ -1,0 +1,8 @@
+service dt2w_service /system/system_ext/bin/dt2w_service.sh
+    class late_start
+    user root
+    group root system input
+    disabled
+
+on property:sys.boot_completed=1
+    start dt2w_service

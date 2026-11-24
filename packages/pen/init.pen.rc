@@ -1,0 +1,41 @@
+service xiaomi-pen-conn /vendor/bin/xiaomi-pen connected
+    user root
+    group root system input
+    disabled
+    oneshot
+
+service xiaomi-pen-disc /vendor/bin/xiaomi-pen disconnected
+    user root
+    group root system input
+    disabled
+    oneshot
+
+service xiaomi-pen-reset /vendor/bin/xiaomi-pen reset
+    user root
+    group root system input
+    disabled
+    oneshot
+
+service xiaomi-pen-pressure /vendor/bin/xiaomi-pen-pressure
+    class late_start
+    user root
+    group root system input
+
+on boot
+    chmod 0666 /dev/xiaomi-touch
+    chown system system /dev/xiaomi-touch
+    chmod 0666 /dev/uinput
+    chmod 0666 /dev/mipp_pen0 2>/dev/null || true
+
+on property:sys.boot_completed=1
+    start xiaomi-pen-reset
+    start xiaomi-pen-pressure
+
+on property:vendor.pen.state=connected
+    start xiaomi-pen-conn
+
+on property:vendor.pen.state=disconnected
+    start xiaomi-pen-disc
+
+on property:vendor.pen.state=reset
+    start xiaomi-pen-reset
