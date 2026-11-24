@@ -68,6 +68,7 @@ public class MainActivity extends Activity {
     private long mFileSize = 0;
     private boolean mHasUpdate = false;
     private boolean mIsDownloaded = false;
+    private boolean mIsDownloading = false;
     private DownloadTask mCurrentDownloadTask = null;
 
     @Override
@@ -97,12 +98,20 @@ public class MainActivity extends Activity {
 
         loadSystemInfo();
 
-        btnBack.setOnClickListener(v -> finish());
+        btnBack.setOnClickListener(v -> {
+            if (mIsDownloading) {
+                confirmCancelDownload();
+            } else {
+                finish();
+            }
+        });
         btnMore.setOnClickListener(v -> showMoreOptions());
 
         btnAction.setOnClickListener(v -> {
             if (mIsDownloaded) {
                 confirmInstall(UPDATE_DEST.getAbsolutePath());
+            } else if (mIsDownloading) {
+                confirmCancelDownload();
             } else if (mHasUpdate) {
                 startDownload();
             } else {
@@ -122,6 +131,15 @@ public class MainActivity extends Activity {
 
         // Process Intent extras (e.g. from Notification)
         handleIntent(getIntent());
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (mIsDownloading) {
+            confirmCancelDownload();
+        } else {
+            super.onBackPressed();
+        }
     }
 
     @Override
@@ -145,11 +163,11 @@ public class MainActivity extends Activity {
             mLatestVersion = version;
         }
 
-        if (autoDownload && !mDownloadUrl.isEmpty() && !mIsDownloaded) {
+        if (autoDownload && !mDownloadUrl.isEmpty() && !mIsDownloaded && !mIsDownloading) {
             Log.i(TAG, "auto_download triggered from notification: " + mDownloadUrl);
             mHasUpdate = true;
             startDownload();
-        } else if (!mIsDownloaded) {
+        } else if (!mIsDownloaded && !mIsDownloading) {
             // Auto-check on launch
             checkForUpdates();
         }
@@ -333,6 +351,7 @@ public class MainActivity extends Activity {
     }
 
     public void checkForUpdates() {
+        if (mIsDownloading) return;
         btnAction.setEnabled(false);
         btnAction.setText("Checking for updates...");
         tvStatusTitle.setText("Connecting to Nebula...");
@@ -435,14 +454,47 @@ public class MainActivity extends Activity {
             return;
         }
 
-        btnAction.setEnabled(false);
-        btnAction.setText("Connecting to Google Drive...");
+        mIsDownloading = true;
+        btnAction.setEnabled(true);
+        btnAction.setText("Cancel Download");
+        btnAction.setBackgroundResource(R.drawable.bg_ios_glass_button_cancel);
         pbDownload.setVisibility(View.VISIBLE);
         tvProgress.setVisibility(View.VISIBLE);
         pbDownload.setProgress(0);
+        tvProgress.setText("Connecting to Google Drive...");
 
         mCurrentDownloadTask = new DownloadTask();
         mCurrentDownloadTask.execute(mDownloadUrl);
+    }
+
+    private void confirmCancelDownload() {
+        new AlertDialog.Builder(this)
+                .setTitle("Cancel Download")
+                .setMessage("Are you sure you want to cancel downloading this update?")
+                .setPositiveButton("Stop Download", (dialog, which) -> cancelDownload())
+                .setNegativeButton("Keep Downloading", null)
+                .show();
+    }
+
+    private void cancelDownload() {
+        if (mCurrentDownloadTask != null) {
+            mCurrentDownloadTask.cancel(true);
+            mCurrentDownloadTask = null;
+        }
+        mIsDownloading = false;
+        pbDownload.setVisibility(View.GONE);
+        tvProgress.setVisibility(View.GONE);
+        tvStatusDesc.setText("Download cancelled. Tap to download again.");
+        btnAction.setEnabled(true);
+        btnAction.setText("Download Update");
+        btnAction.setBackgroundResource(R.drawable.bg_ios_glass_button_primary);
+        Toast.makeText(this, "Download cancelled", Toast.LENGTH_SHORT).show();
+
+        // Clean up partial .tmp file
+        File tmp = new File(UPDATE_DEST.getAbsolutePath() + ".tmp");
+        if (tmp.exists()) {
+            tmp.delete();
+        }
     }
 
     private class DownloadTask extends AsyncTask<String, Object, Boolean> {
@@ -468,6 +520,7 @@ public class MainActivity extends Activity {
 
                 int redirects = 0;
                 while (redirects < 10) {
+                    if (isCancelled()) return false;
                     URL url = new URL(resolvedUrl);
                     conn = (HttpURLConnection) url.openConnection();
                     conn.setInstanceFollowRedirects(true);
@@ -488,6 +541,8 @@ public class MainActivity extends Activity {
                     break;
                 }
 
+                if (isCancelled()) return false;
+
                 if (conn == null || conn.getResponseCode() != HttpURLConnection.HTTP_OK) {
                     mErrorMessage = "HTTP error: " + (conn != null ? conn.getResponseCode() : -1);
                     return false;
@@ -507,6 +562,8 @@ public class MainActivity extends Activity {
                         return false;
                     }
 
+                    if (isCancelled()) return false;
+
                     Log.i(TAG, "Connecting to confirmation URL: " + confirmationUrl);
                     URL url = new URL(confirmationUrl);
                     conn = (HttpURLConnection) url.openConnection();
@@ -521,6 +578,8 @@ public class MainActivity extends Activity {
                         return false;
                     }
                 }
+
+                if (isCancelled()) return false;
 
                 long fileLength = conn.getContentLengthLong();
                 if (fileLength <= 0 && mFileSize > 0) {
@@ -542,7 +601,7 @@ public class MainActivity extends Activity {
                     if (isCancelled()) {
                         in.close();
                         out.close();
-                        mTempFile.delete();
+                        if (mTempFile.exists()) mTempFile.delete();
                         return false;
                     }
                     total += count;
@@ -560,6 +619,11 @@ public class MainActivity extends Activity {
                 out.flush();
                 out.close();
                 in.close();
+
+                if (isCancelled()) {
+                    if (mTempFile.exists()) mTempFile.delete();
+                    return false;
+                }
 
                 // Sanity check: Ensure downloaded file is > 1MB and rename .tmp
                 if (mTempFile.exists() && mTempFile.length() > 1048576) {
@@ -679,7 +743,23 @@ public class MainActivity extends Activity {
         }
 
         @Override
+        protected void onCancelled() {
+            super.onCancelled();
+            mIsDownloading = false;
+            pbDownload.setVisibility(View.GONE);
+            tvProgress.setVisibility(View.GONE);
+            if (mTempFile != null && mTempFile.exists()) {
+                mTempFile.delete();
+            }
+            btnAction.setEnabled(true);
+            btnAction.setText("Download Update");
+            btnAction.setBackgroundResource(R.drawable.bg_ios_glass_button_primary);
+            tvStatusDesc.setText("Download cancelled");
+        }
+
+        @Override
         protected void onPostExecute(Boolean success) {
+            mIsDownloading = false;
             btnAction.setEnabled(true);
             pbDownload.setVisibility(View.GONE);
             tvProgress.setVisibility(View.GONE);
@@ -695,6 +775,7 @@ public class MainActivity extends Activity {
             } else {
                 Toast.makeText(MainActivity.this, mErrorMessage, Toast.LENGTH_LONG).show();
                 btnAction.setText("Download Update");
+                btnAction.setBackgroundResource(R.drawable.bg_ios_glass_button_primary);
                 showDownloadErrorDialog(mErrorMessage);
             }
         }
