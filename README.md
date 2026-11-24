@@ -11,7 +11,7 @@
 ---
 
 ## 🌟 Maintainers & Credits
-
+- Rom booted by @GAURAV_140110
 - **Lead Maintainer**: [Øpium | Team Nebula](https://github.com/xstacy666) (`xstacy666`)
 - **Core Contributors & Testing**: 
   - `@Noble_actual117`
