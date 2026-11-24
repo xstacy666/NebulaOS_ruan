@@ -3,7 +3,7 @@
 
 BRIDGE="/system_ext/bin/voice_call_bridge"
 if [ ! -x "$BRIDGE" ]; then
-    BRIDGE="/data/adb/modules/bugfix_opd2404/files/voice_call_bridge"
+    BRIDGE="/system/system_ext/bin/voice_call_bridge"
 fi
 
 case "$1" in
