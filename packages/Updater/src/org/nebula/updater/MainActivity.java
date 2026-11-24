@@ -7,7 +7,6 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.provider.OpenableColumns;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -31,6 +30,8 @@ import java.net.CookieHandler;
 import java.net.CookieManager;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLEncoder;
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -39,14 +40,12 @@ public class MainActivity extends Activity {
     private static final String TAG = "NebulaUpdater";
     private static final int REQUEST_LOCAL_UPDATE = 1001;
 
-    // Official GitHub OTA Endpoints
-    private static final String[] OTA_URLS = {
-        "https://raw.githubusercontent.com/xstacy666/NebulaOS_ruan_ota/main/ota.json",
-        "https://raw.githubusercontent.com/xstacy666/AERA-ruan/main/ota.json"
-    };
+    // Official GitHub OTA Manifest Endpoints
+    public static final String OTA_URL = "https://raw.githubusercontent.com/xstacy666/NebulaOS_ruan_ota/main/ota.json";
+    private static final String FALLBACK_OTA_URL = "https://raw.githubusercontent.com/xstacy666/AERA-ruan/main/ota.json";
 
-    private static final String UPDATE_FILE_NAME = "ColorOS17_ruan_dizi_Update.zip";
-    private static final File UPDATE_DEST = new File("/sdcard/Download/" + UPDATE_FILE_NAME);
+    public static final String UPDATE_FILE_NAME = "ColorOS17_ruan_dizi_Update.zip";
+    public static final File UPDATE_DEST = new File("/sdcard/Download/" + UPDATE_FILE_NAME);
 
     private TextView tvCurrentVersion;
     private TextView tvBuildId;
@@ -63,21 +62,23 @@ public class MainActivity extends Activity {
     private ImageView btnMore;
 
     private String mLatestVersion = "";
+    private long mLatestVersionCode = 0;
     private String mDownloadUrl = "";
     private String mChangelog = "";
     private long mFileSize = 0;
     private boolean mHasUpdate = false;
     private boolean mIsDownloaded = false;
+    private DownloadTask mCurrentDownloadTask = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // Schedule periodic background OTA job
+        // Schedule periodic background OTA check (every 6 hours)
         OtaBootReceiver.scheduleOtaJob(this);
 
-        // Auto-nuke any downloaded updates older than 1 month (30 days)
+        // Auto-nuke downloaded updates older than 1 month (30 days)
         OtaCheckJobService.nukeExpiredUpdates();
 
         btnBack = findViewById(R.id.btn_back);
@@ -109,13 +110,48 @@ public class MainActivity extends Activity {
             }
         });
 
-        // If update file already exists in Download and is fresh (<30 days), offer install
-        if (UPDATE_DEST.exists() && UPDATE_DEST.length() > 1000000) {
+        // Check if update file already exists in Download and is intact (>1MB)
+        if (UPDATE_DEST.exists() && UPDATE_DEST.length() > 1048576) {
             mIsDownloaded = true;
             tvStatusTitle.setText("Update Ready to Install");
-            tvStatusDesc.setText("Recovery package ready in Download: " + (UPDATE_DEST.length() / (1024 * 1024)) + " MB");
+            long mb = UPDATE_DEST.length() / (1024 * 1024);
+            tvStatusDesc.setText("Recovery package ready in Download: " + mb + " MB");
             btnAction.setText("Install via OrangeFox Recovery");
             btnAction.setBackgroundResource(R.drawable.bg_ios_glass_button_primary);
+        }
+
+        // Process Intent extras (e.g. from Notification)
+        handleIntent(getIntent());
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleIntent(intent);
+    }
+
+    private void handleIntent(Intent intent) {
+        if (intent == null) return;
+
+        boolean autoDownload = intent.getBooleanExtra("auto_download", false);
+        String targetUrl = intent.getStringExtra("target_url");
+        String version = intent.getStringExtra("version");
+
+        if (targetUrl != null && !targetUrl.isEmpty()) {
+            mDownloadUrl = targetUrl;
+        }
+        if (version != null && !version.isEmpty()) {
+            mLatestVersion = version;
+        }
+
+        if (autoDownload && !mDownloadUrl.isEmpty() && !mIsDownloaded) {
+            Log.i(TAG, "auto_download triggered from notification: " + mDownloadUrl);
+            mHasUpdate = true;
+            startDownload();
+        } else if (!mIsDownloaded) {
+            // Auto-check on launch
+            checkForUpdates();
         }
     }
 
@@ -129,19 +165,20 @@ public class MainActivity extends Activity {
 
         String incremental = getProp("ro.build.version.incremental", "NebulaOS_17.0");
         String securityPatch = getProp("ro.build.version.security_patch", "2026-09-01");
+        String nebulaVer = getProp("ro.nebula.version", "17.0");
 
-        tvCurrentVersion.setText("Version: NebulaOS 17.0 (Android 15)");
+        tvCurrentVersion.setText("Version: NebulaOS " + nebulaVer + " (Android 15)");
         tvBuildId.setText("Build: " + incremental);
         tvSecurityPatch.setText("Security Patch: " + securityPatch);
         tvDeviceModel.setText(deviceName);
-        
+
         tvStatusTitle.setText("Up to date");
         tvStatusDesc.setText("Already Looking for update's huh? 🤦");
         btnAction.setText("Check for Updates");
         btnAction.setBackgroundResource(R.drawable.bg_ios_glass_button);
     }
 
-    private String getProp(String key, String def) {
+    public static String getProp(String key, String def) {
         try {
             Class<?> sp = Class.forName("android.os.SystemProperties");
             Method get = sp.getMethod("get", String.class, String.class);
@@ -151,10 +188,21 @@ public class MainActivity extends Activity {
         }
     }
 
+    public static long getLongProp(String key, long def) {
+        try {
+            Class<?> sp = Class.forName("android.os.SystemProperties");
+            Method get = sp.getMethod("getLong", String.class, long.class);
+            return (Long) get.invoke(null, key, def);
+        } catch (Exception e) {
+            return def;
+        }
+    }
+
     private void showMoreOptions() {
         String[] options = {
             "Local update (Select .zip)",
             "Check for updates",
+            "Open Download link in Browser",
             "Delete downloaded update",
             "About Nebula OS"
         };
@@ -170,14 +218,27 @@ public class MainActivity extends Activity {
                             checkForUpdates();
                             break;
                         case 2:
-                            deleteDownloadedUpdate();
+                            openUrlInBrowser();
                             break;
                         case 3:
+                            deleteDownloadedUpdate();
+                            break;
+                        case 4:
                             showAboutDialog();
                             break;
                     }
                 })
                 .show();
+    }
+
+    private void openUrlInBrowser() {
+        String url = (mDownloadUrl != null && !mDownloadUrl.isEmpty()) ? mDownloadUrl : "https://github.com/xstacy666/NebulaOS_ruan_ota";
+        try {
+            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+            startActivity(intent);
+        } catch (Exception e) {
+            Toast.makeText(this, "Could not open browser: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void pickLocalUpdateZip() {
@@ -210,10 +271,9 @@ public class MainActivity extends Activity {
                 path = "/sdcard/" + parts[1];
             }
         }
-        
-        File f = new File(path);
-        if (!f.exists()) {
-            // Copy to Download if virtual URI
+
+        File f = (path != null) ? new File(path) : null;
+        if (f == null || !f.exists()) {
             path = copyUriToDownload(uri);
         }
 
@@ -229,7 +289,7 @@ public class MainActivity extends Activity {
             InputStream in = getContentResolver().openInputStream(uri);
             File dest = new File("/sdcard/Download/local_update.zip");
             OutputStream out = new FileOutputStream(dest);
-            byte[] buf = new byte[8192];
+            byte[] buf = new byte[16384];
             int len;
             while ((len = in.read(buf)) > 0) out.write(buf, 0, len);
             in.close();
@@ -242,15 +302,23 @@ public class MainActivity extends Activity {
     }
 
     private void deleteDownloadedUpdate() {
+        boolean anyDeleted = false;
         if (UPDATE_DEST.exists()) {
-            boolean deleted = UPDATE_DEST.delete();
-            if (deleted) {
-                Toast.makeText(this, "Downloaded update deleted successfully", Toast.LENGTH_SHORT).show();
-                mIsDownloaded = false;
-                loadSystemInfo();
-            } else {
-                Toast.makeText(this, "Failed to delete update file", Toast.LENGTH_SHORT).show();
-            }
+            anyDeleted = UPDATE_DEST.delete();
+        }
+        File tmp = new File(UPDATE_DEST.getAbsolutePath() + ".tmp");
+        if (tmp.exists()) {
+            tmp.delete();
+        }
+        File localZip = new File("/sdcard/Download/local_update.zip");
+        if (localZip.exists()) {
+            localZip.delete();
+        }
+
+        if (anyDeleted) {
+            Toast.makeText(this, "Downloaded update deleted successfully", Toast.LENGTH_SHORT).show();
+            mIsDownloaded = false;
+            loadSystemInfo();
         } else {
             Toast.makeText(this, "No downloaded update found", Toast.LENGTH_SHORT).show();
         }
@@ -264,12 +332,12 @@ public class MainActivity extends Activity {
                 .show();
     }
 
-    private void checkForUpdates() {
+    public void checkForUpdates() {
         btnAction.setEnabled(false);
         btnAction.setText("Checking for updates...");
-        tvStatusTitle.setText("Connecting...");
+        tvStatusTitle.setText("Connecting to Nebula...");
 
-        new CheckUpdateTask().execute(OTA_URLS);
+        new CheckUpdateTask().execute(OTA_URL, FALLBACK_OTA_URL);
     }
 
     private class CheckUpdateTask extends AsyncTask<String, Void, JSONObject> {
@@ -279,8 +347,8 @@ public class MainActivity extends Activity {
                 try {
                     URL url = new URL(targetUrl);
                     HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                    conn.setConnectTimeout(6000);
-                    conn.setReadTimeout(6000);
+                    conn.setConnectTimeout(8000);
+                    conn.setReadTimeout(8000);
                     conn.setRequestMethod("GET");
                     conn.setRequestProperty("User-Agent", "NebulaOS-Updater/17.0");
 
@@ -310,23 +378,28 @@ public class MainActivity extends Activity {
             btnAction.setEnabled(true);
             if (update != null) {
                 mLatestVersion = update.optString("version", "17.0.0");
+                mLatestVersionCode = update.optLong("version_code", 0);
                 String versionName = update.optString("version_name", "Nebula OS " + mLatestVersion);
                 mDownloadUrl = update.optString("url", "");
                 mChangelog = update.optString("changelog", "System improvements and performance optimizations.");
                 mFileSize = update.optLong("size", 0);
 
-                String currentVer = getProp("ro.build.version.incremental", "");
-                if (!mLatestVersion.equals(currentVer)) {
+                if (isNewUpdate(mLatestVersion, mLatestVersionCode)) {
                     mHasUpdate = true;
                     tvStatusTitle.setText(versionName);
                     String sizeText = mFileSize > 0 ? " • " + (mFileSize / (1024 * 1024)) + " MB" : "";
                     tvStatusDesc.setText("New build available" + sizeText);
-                    
+
                     tvChangelog.setText(mChangelog);
                     layoutChangelogBox.setVisibility(View.VISIBLE);
 
-                    btnAction.setText("Download Update");
-                    btnAction.setBackgroundResource(R.drawable.bg_ios_glass_button_primary);
+                    if (mIsDownloaded) {
+                        btnAction.setText("Install via OrangeFox Recovery");
+                        btnAction.setBackgroundResource(R.drawable.bg_ios_glass_button_primary);
+                    } else {
+                        btnAction.setText("Download Update");
+                        btnAction.setBackgroundResource(R.drawable.bg_ios_glass_button_primary);
+                    }
                     return;
                 }
             }
@@ -337,26 +410,45 @@ public class MainActivity extends Activity {
             layoutChangelogBox.setVisibility(View.GONE);
             btnAction.setText("Check for Updates");
             btnAction.setBackgroundResource(R.drawable.bg_ios_glass_button);
-            Toast.makeText(MainActivity.this, "Your system is already up to date!", Toast.LENGTH_SHORT).show();
+            Toast.makeText(MainActivity.this, "Your system is up to date!", Toast.LENGTH_SHORT).show();
         }
+    }
+
+    public static boolean isNewUpdate(String remoteVer, long remoteCode) {
+        long currentCode = getLongProp("ro.nebula.version.code", 0);
+        if (remoteCode > 0 && currentCode > 0) {
+            return remoteCode > currentCode;
+        }
+
+        String currentVer = getProp("ro.nebula.version", "");
+        if (currentVer.isEmpty()) {
+            currentVer = getProp("ro.build.version.incremental", "");
+        }
+
+        if (remoteVer == null || remoteVer.isEmpty()) return false;
+        return !remoteVer.trim().equalsIgnoreCase(currentVer.trim());
     }
 
     private void startDownload() {
         if (mDownloadUrl.isEmpty()) {
-            Toast.makeText(this, "No download URL available", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "No download URL available in update manifest", Toast.LENGTH_SHORT).show();
             return;
         }
 
         btnAction.setEnabled(false);
-        btnAction.setText("Preparing download...");
+        btnAction.setText("Connecting to Google Drive...");
         pbDownload.setVisibility(View.VISIBLE);
         tvProgress.setVisibility(View.VISIBLE);
         pbDownload.setProgress(0);
 
-        new DownloadTask().execute(mDownloadUrl);
+        mCurrentDownloadTask = new DownloadTask();
+        mCurrentDownloadTask.execute(mDownloadUrl);
     }
 
-    private class DownloadTask extends AsyncTask<String, Integer, Boolean> {
+    private class DownloadTask extends AsyncTask<String, Object, Boolean> {
+        private String mErrorMessage = "Download failed";
+        private File mTempFile;
+
         @Override
         protected Boolean doInBackground(String... urls) {
             InputStream in = null;
@@ -364,22 +456,31 @@ public class MainActivity extends Activity {
             HttpURLConnection conn = null;
 
             try {
-                CookieHandler.setDefault(new CookieManager());
-                String downloadUrl = normalizeGoogleDriveUrl(urls[0]);
+                // Keep cookies across redirects (required for Google Drive large files)
+                CookieManager cookieManager = new CookieManager();
+                CookieHandler.setDefault(cookieManager);
+
+                String currentUrl = urls[0];
+                Log.i(TAG, "Starting OTA download: " + currentUrl);
+
+                // 1. Resolve direct Google Drive link
+                String resolvedUrl = resolveGoogleDriveStreamUrl(currentUrl);
 
                 int redirects = 0;
-                while (redirects < 6) {
-                    URL url = new URL(downloadUrl);
+                while (redirects < 10) {
+                    URL url = new URL(resolvedUrl);
                     conn = (HttpURLConnection) url.openConnection();
                     conn.setInstanceFollowRedirects(true);
-                    conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Android; Tablet) NebulaOS-OTA/17.0");
+                    conn.setConnectTimeout(15000);
+                    conn.setReadTimeout(30000);
+                    conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 15; Tablet) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
                     conn.connect();
 
                     int status = conn.getResponseCode();
-                    if (status == HttpURLConnection.HTTP_MOVED_TEMP || 
-                        status == HttpURLConnection.HTTP_MOVED_PERM || 
+                    if (status == HttpURLConnection.HTTP_MOVED_TEMP ||
+                        status == HttpURLConnection.HTTP_MOVED_PERM ||
                         status == HttpURLConnection.HTTP_SEE_OTHER) {
-                        downloadUrl = conn.getHeaderField("Location");
+                        resolvedUrl = conn.getHeaderField("Location");
                         conn.disconnect();
                         redirects++;
                         continue;
@@ -388,35 +489,99 @@ public class MainActivity extends Activity {
                 }
 
                 if (conn == null || conn.getResponseCode() != HttpURLConnection.HTTP_OK) {
+                    mErrorMessage = "HTTP error: " + (conn != null ? conn.getResponseCode() : -1);
                     return false;
                 }
 
-                int fileLength = conn.getContentLength();
-                in = conn.getInputStream();
-                UPDATE_DEST.getParentFile().mkdirs();
-                out = new FileOutputStream(UPDATE_DEST);
+                String contentType = conn.getContentType();
+                Log.i(TAG, "Connection established. Content-Type: " + contentType + ", Code: " + conn.getResponseCode());
 
-                byte[] data = new byte[16384];
+                // If Google Drive returned the virus scan warning HTML page, parse the confirmation link
+                if (contentType != null && contentType.toLowerCase(Locale.ROOT).contains("text/html")) {
+                    Log.i(TAG, "Received HTML page from Google Drive, parsing virus confirmation...");
+                    String confirmationUrl = parseGoogleDriveConfirmation(conn, resolvedUrl);
+                    conn.disconnect();
+
+                    if (confirmationUrl == null) {
+                        mErrorMessage = "Google Drive link requires manual browser confirmation or is private.";
+                        return false;
+                    }
+
+                    Log.i(TAG, "Connecting to confirmation URL: " + confirmationUrl);
+                    URL url = new URL(confirmationUrl);
+                    conn = (HttpURLConnection) url.openConnection();
+                    conn.setInstanceFollowRedirects(true);
+                    conn.setConnectTimeout(15000);
+                    conn.setReadTimeout(30000);
+                    conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 15; Tablet) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+                    conn.connect();
+
+                    if (conn.getResponseCode() != HttpURLConnection.HTTP_OK) {
+                        mErrorMessage = "Confirmation failed with HTTP " + conn.getResponseCode();
+                        return false;
+                    }
+                }
+
+                long fileLength = conn.getContentLengthLong();
+                if (fileLength <= 0 && mFileSize > 0) {
+                    fileLength = mFileSize;
+                }
+
+                in = conn.getInputStream();
+                mTempFile = new File(UPDATE_DEST.getAbsolutePath() + ".tmp");
+                mTempFile.getParentFile().mkdirs();
+                out = new FileOutputStream(mTempFile);
+
+                byte[] data = new byte[32768];
                 long total = 0;
                 int count;
-                long lastUpdate = System.currentTimeMillis();
+                long lastUiUpdate = System.currentTimeMillis();
+                long startTime = System.currentTimeMillis();
 
                 while ((count = in.read(data)) != -1) {
                     if (isCancelled()) {
                         in.close();
+                        out.close();
+                        mTempFile.delete();
                         return false;
                     }
                     total += count;
-                    long now = System.currentTimeMillis();
-                    if (fileLength > 0 && (now - lastUpdate > 300)) {
-                        publishProgress((int) (total * 100 / fileLength));
-                        lastUpdate = now;
-                    }
                     out.write(data, 0, count);
+
+                    long now = System.currentTimeMillis();
+                    if (now - lastUiUpdate > 350) {
+                        int percent = (fileLength > 0) ? (int) (total * 100 / fileLength) : 0;
+                        double speedMb = ((double) total / (1024 * 1024)) / ((now - startTime + 1) / 1000.0);
+                        publishProgress(percent, total, fileLength, speedMb);
+                        lastUiUpdate = now;
+                    }
                 }
-                return true;
+
+                out.flush();
+                out.close();
+                in.close();
+
+                // Sanity check: Ensure downloaded file is > 1MB and rename .tmp
+                if (mTempFile.exists() && mTempFile.length() > 1048576) {
+                    if (UPDATE_DEST.exists()) {
+                        UPDATE_DEST.delete();
+                    }
+                    boolean renamed = mTempFile.renameTo(UPDATE_DEST);
+                    if (renamed) {
+                        return true;
+                    } else {
+                        mErrorMessage = "Failed to finalize downloaded package";
+                        return false;
+                    }
+                } else {
+                    mErrorMessage = "Downloaded file incomplete or invalid (" + (mTempFile.exists() ? mTempFile.length() : 0) + " bytes)";
+                    mTempFile.delete();
+                    return false;
+                }
+
             } catch (Exception e) {
-                Log.e(TAG, "Download failed", e);
+                Log.e(TAG, "Download error", e);
+                mErrorMessage = "Error: " + e.getMessage();
                 return false;
             } finally {
                 try {
@@ -427,9 +592,9 @@ public class MainActivity extends Activity {
             }
         }
 
-        private String normalizeGoogleDriveUrl(String url) {
-            if (url.contains("drive.google.com")) {
-                Pattern p = Pattern.compile("d/([a-zA-Z0-9_-]+)|id=([a-zA-Z0-9_-]+)");
+        private String resolveGoogleDriveStreamUrl(String url) {
+            if (url.contains("drive.google.com") || url.contains("drive.usercontent.google.com")) {
+                Pattern p = Pattern.compile("d/([a-zA-Z0-9_-]{20,})|id=([a-zA-Z0-9_-]{20,})");
                 Matcher m = p.matcher(url);
                 if (m.find()) {
                     String fileId = m.group(1) != null ? m.group(1) : m.group(2);
@@ -439,10 +604,78 @@ public class MainActivity extends Activity {
             return url;
         }
 
+        private String parseGoogleDriveConfirmation(HttpURLConnection conn, String originalUrl) {
+            try {
+                BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                StringBuilder sb = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    sb.append(line).append("\n");
+                }
+                reader.close();
+                String html = sb.toString();
+
+                // 1. Look for <form id="download-form" action="..." ...>
+                Pattern formPattern = Pattern.compile("<form[^>]*id=[\"']download-form[\"'][^>]*action=[\"']([^\"']+)[\"']", Pattern.CASE_INSENSITIVE);
+                Matcher fm = formPattern.matcher(html);
+                if (fm.find()) {
+                    String action = fm.group(1);
+                    StringBuilder params = new StringBuilder();
+                    Pattern inputPattern = Pattern.compile("<input[^>]*name=[\"']([^\"']+)[\"'][^>]*value=[\"']([^\"']*)[\"']", Pattern.CASE_INSENSITIVE);
+                    Matcher im = inputPattern.matcher(html);
+                    while (im.find()) {
+                        String name = im.group(1);
+                        String val = im.group(2);
+                        if (params.length() > 0) params.append("&");
+                        params.append(URLEncoder.encode(name, "UTF-8")).append("=").append(URLEncoder.encode(val, "UTF-8"));
+                    }
+                    if (params.length() > 0) {
+                        return action + "?" + params.toString();
+                    }
+                }
+
+                // 2. Look for download link <a id="uc-download-link" href="...">
+                Pattern linkPattern = Pattern.compile("id=[\"']uc-download-link[\"'][^>]*href=[\"']([^\"']+)[\"']", Pattern.CASE_INSENSITIVE);
+                Matcher lm = linkPattern.matcher(html);
+                if (lm.find()) {
+                    String href = lm.group(1).replace("&amp;", "&");
+                    if (href.startsWith("/")) {
+                        return "https://drive.google.com" + href;
+                    }
+                    return href;
+                }
+
+                // 3. Look for confirm & uuid tokens
+                Matcher cm = Pattern.compile("confirm=([a-zA-Z0-9_-]+)").matcher(html);
+                Matcher um = Pattern.compile("uuid=([a-zA-Z0-9_-]+)").matcher(html);
+                if (cm.find()) {
+                    String confirm = cm.group(1);
+                    String uuid = um.find() ? um.group(1) : "";
+                    String fileId = "";
+                    Matcher fid = Pattern.compile("id=([a-zA-Z0-9_-]{20,})").matcher(originalUrl);
+                    if (fid.find()) fileId = fid.group(1);
+                    return "https://drive.usercontent.google.com/download?id=" + fileId + "&export=download&confirm=" + confirm + (!uuid.isEmpty() ? "&uuid=" + uuid : "");
+                }
+            } catch (Exception e) {
+                Log.w(TAG, "Error parsing Google Drive confirmation HTML: " + e.getMessage());
+            }
+            return null;
+        }
+
         @Override
-        protected void onProgressUpdate(Integer... progress) {
-            pbDownload.setProgress(progress[0]);
-            tvProgress.setText("Downloading update: " + progress[0] + "%");
+        protected void onProgressUpdate(Object... values) {
+            int percent = (Integer) values[0];
+            long total = (Long) values[1];
+            long length = (Long) values[2];
+            double speed = (Double) values[3];
+
+            pbDownload.setProgress(percent);
+            long totalMb = total / (1024 * 1024);
+            long lengthMb = length / (1024 * 1024);
+
+            String text = String.format(Locale.getDefault(), "Downloading: %d%% (%d / %d MB) • %.1f MB/s",
+                    percent, totalMb, lengthMb, speed);
+            tvProgress.setText(text);
         }
 
         @Override
@@ -454,20 +687,32 @@ public class MainActivity extends Activity {
             if (success) {
                 mIsDownloaded = true;
                 tvStatusTitle.setText("Update Ready to Install");
-                tvStatusDesc.setText("Recovery package downloaded (" + (UPDATE_DEST.length() / (1024 * 1024)) + " MB)");
+                long mb = UPDATE_DEST.length() / (1024 * 1024);
+                tvStatusDesc.setText("Recovery package downloaded (" + mb + " MB)");
                 btnAction.setText("Install via OrangeFox Recovery");
                 btnAction.setBackgroundResource(R.drawable.bg_ios_glass_button_primary);
+                Toast.makeText(MainActivity.this, "Download completed!", Toast.LENGTH_SHORT).show();
             } else {
-                Toast.makeText(MainActivity.this, "Download failed. Check your internet connection.", Toast.LENGTH_LONG).show();
+                Toast.makeText(MainActivity.this, mErrorMessage, Toast.LENGTH_LONG).show();
                 btnAction.setText("Download Update");
+                showDownloadErrorDialog(mErrorMessage);
             }
         }
+    }
+
+    private void showDownloadErrorDialog(String error) {
+        new AlertDialog.Builder(this)
+                .setTitle("Download Issue")
+                .setMessage(error + "\n\nWould you like to open the download link in your browser instead?")
+                .setPositiveButton("Open in Browser", (d, w) -> openUrlInBrowser())
+                .setNegativeButton("Cancel", null)
+                .show();
     }
 
     private void confirmInstall(String zipPath) {
         new AlertDialog.Builder(this)
                 .setTitle("Install via OrangeFox Recovery")
-                .setMessage("Your tablet will configure the recovery commands and reboot into OrangeFox Recovery to install the update.\n\nFile:\n" + zipPath + "\n\nApps, settings, and personal data will NOT be wiped.\n\nProceed?")
+                .setMessage("Your tablet will configure the recovery commands and reboot into OrangeFox Recovery to install the update.\n\nPackage:\n" + zipPath + "\n\nApps, settings, and personal data will NOT be wiped.\n\nProceed?")
                 .setPositiveButton("Reboot & Install", (dialog, which) -> executeInstall(zipPath))
                 .setNegativeButton("Cancel", null)
                 .show();
