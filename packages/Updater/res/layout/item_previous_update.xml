@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="16dp"
+    android:background="@drawable/bg_glass_card"
+    android:orientation="vertical"
+    android:padding="18dp">
+
+    <!-- Header Row: Title & Status Badge -->
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <TextView
+            android:id="@+id/tv_item_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentStart="true"
+            android:layout_toStartOf="@+id/tv_item_badge"
+            android:layout_marginEnd="8dp"
+            android:text="Nebula OS Build"
+            android:textColor="#FFFFFF"
+            android:textSize="17sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tv_item_badge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:background="@drawable/bg_pill_version"
+            android:paddingStart="10dp"
+            android:paddingTop="3dp"
+            android:paddingEnd="10dp"
+            android:paddingBottom="3dp"
+            android:text="PREVIOUS"
+            android:textColor="#B0C4DE"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+    </RelativeLayout>
+
+    <!-- Subtitle: Version, Date, Size -->
+    <TextView
+        android:id="@+id/tv_item_subtitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:text="Version 17.0.0.106 • 2026-11-25 • 149 KB"
+        android:textColor="#81D4FA"
+        android:textSize="13sp" />
+
+    <!-- Changelog Container -->
+    <LinearLayout
+        android:id="@+id/layout_item_changelog"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:background="@drawable/bg_glass_card_sub"
+        android:orientation="vertical"
+        android:padding="12dp">
+
+        <TextView
+            android:id="@+id/tv_item_changelog"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:lineSpacingExtra="2dp"
+            android:text="• Changelog details"
+            android:textColor="#D8E2EC"
+            android:textSize="13sp" />
+    </LinearLayout>
+
+    <!-- Download Progress Bar (hidden by default) -->
+    <ProgressBar
+        android:id="@+id/pb_item_download"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="8dp"
+        android:layout_marginTop="12dp"
+        android:indeterminate="false"
+        android:max="100"
+        android:progress="0"
+        android:progressDrawable="@drawable/progress_coloros"
+        android:visibility="gone" />
+
+    <!-- Progress text (hidden by default) -->
+    <TextView
+        android:id="@+id/tv_item_progress"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text=""
+        android:textColor="#81D4FA"
+        android:textSize="12sp"
+        android:visibility="gone" />
+
+    <!-- Action Button (iOS Glass Style) -->
+    <Button
+        android:id="@+id/btn_item_action"
+        android:layout_width="wrap_content"
+        android:layout_height="40dp"
+        android:layout_gravity="end"
+        android:layout_marginTop="14dp"
+        android:background="@drawable/bg_ios_glass_button_primary"
+        android:elevation="0dp"
+        android:minWidth="140dp"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:stateListAnimator="@null"
+        android:text="Download &amp; Install"
+        android:textAllCaps="false"
+        android:textColor="#FFFFFF"
+        android:textSize="13sp"
+        android:textStyle="bold" />
+
+</LinearLayout>

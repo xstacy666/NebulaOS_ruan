@@ -271,6 +271,24 @@
                 android:textSize="14sp"
                 android:textStyle="bold" />
 
+            <!-- Previous Updates Pill Button -->
+            <Button
+                android:id="@+id/btn_previous_updates"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/bg_ios_glass_button"
+                android:elevation="0dp"
+                android:minWidth="175dp"
+                android:paddingStart="22dp"
+                android:paddingEnd="22dp"
+                android:stateListAnimator="@null"
+                android:text="Previous Updates"
+                android:textAllCaps="false"
+                android:textColor="#B0C4DE"
+                android:textSize="13sp" />
+
             <!-- Footer note -->
             <TextView
                 android:layout_width="wrap_content"

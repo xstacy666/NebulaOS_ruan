@@ -45,6 +45,11 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".PreviousUpdatesActivity"
+            android:label="Previous Updates"
+            android:exported="true" />
+
         <receiver
             android:name=".OtaBootReceiver"
             android:enabled="true"
