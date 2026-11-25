@@ -1,0 +1,6 @@
+id=adb_tcp_persistent
+name=Persistent ADB over TCP
+version=1.0
+versionCode=1
+author=opd4-pocopad-port
+description=Keeps adbd listening on TCP port 5555 across reboots so the tablet can be debugged over the USB tether link.

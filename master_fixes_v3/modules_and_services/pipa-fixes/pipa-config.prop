@@ -1,0 +1,116 @@
+# pipa_port feature switches (1 = on, 0 = off), ROM defaults. Override any of them in
+# /data/misc/pipa_port/config.prop (root) and reboot.
+
+# Face unlock: start facehal-rs as root (the init domain has no camera/GPU access)
+# and restart it if it dies.
+FACE_HAL=1
+
+# Fake OPPO charger HAL fed from the qcom power_supply nodes, so ColorOS does not
+# report an "abnormal charger".
+CHARGER_SHIM=1
+
+# Software stand-in for OPPO's ICryptoeng (TEE): privacy password, app lock and hidden apps. The records are in
+# /data/misc/pipa_port/cryptoeng (3a).
+CRYPTOENG=1
+
+# Own-code OPPO HAL shims in one host process (4r, maintainer/halshims): comma list, empty = off.
+#   gameopt = game key threads get sched_assist UX (oiface, COSA); panel = displaypanelfeature answers and backlight
+#   values; misc = read-only IOplusMisc (no OPPO node writes); touch = the 4o touch shim in this host (saves one
+#   process; without "touch" here the separate 4o host runs).
+HAL_SHIMS=gameopt,panel,misc,touch
+
+# Re-arm the pen in the touch driver after every screen-on (otherwise it stops working).
+PEN_WAKE=1
+# 6u (BUGS 111): pen input only while the pen is connected over BT; pen off at disconnect
+PEN_BT_ONLY=1
+
+# Pen body buttons -> actions (keys.conf).
+PEN_KEYS=1
+
+# Pen watcher: tell ColorOS a stylus is connected, lock 120 Hz while the pen is out of
+# the dock (the panel senses the pen only at 60/120 Hz), publish pen battery for the
+# pipa helper's pill.
+PEN_WATCH=1
+# 1 = pen battery in the ColorOS live alert on dock/undock (needs the patched IPeManager, 2p); 0 = helper pill
+PEN_FLUID=1
+
+# Put back the colour mode, adaptive colour and Bedtime mode that ColorOS resets at boot (2e-3s). Kept on (110 check
+# 2026-11-20): adaptive is still reset (pt144 with the restore off: oplus_customize_comfort_color_temperature_enable
+# 1 -> 0 after one reboot); colour mode showed no reset in 37 boots, but its part costs only one settings read.
+COLOR_MODE_RESTORE=1
+ADAPTIVE_RESTORE=1
+
+# Defaults written only when never set: animation blur off (drops frames on the SD870),
+# pen buttons merged into drawing apps (stylus_buttons_enabled=1).
+BLUR_DEFAULT=1
+STYLUS_BUTTONS_DEFAULT=1
+# once per install: window blur off, material blur off, animation blur off (2q/2v; animation scales stay at 1.0)
+SMOOTH_DEFAULT=1
+# once per install: OPPO secure keyboard for password fields off (Settings.Secure security_window=0; beta8)
+SECURE_KEYBOARD_OFF=1
+# beta7.1: once on every install (also dirty flash): Fast animations + Visual blur + Contour glow on.
+BLUR_TIER_ONCE=1
+
+# Grant the pipa helper app its notification and overlay permissions.
+HELPER_GRANTS=1
+
+# Once per install: install the SukiSU Nova manager (system_ext/pipa_port/SukiSU.apk, 7u) as a normal app, so that
+# KernelSU finds it under /data/app (2w).
+KSU_MANAGER=1
+# Play Store + Gboard + Google app (5u): install the APKs in /system_ext/pipa_port/apps/<package>/ once per install (Play updates them).
+BUNDLED_APPS=1
+
+# Link /dev/input/event12 to the keyboard case while it is attached (the old xiaomi-keyboard
+# checked that exact name). Only used on kernels before walt-r20; since 6k the daemon checks
+# /proc/nanokbd.
+KB_EVENT_LINK=1
+
+# Kernel walt-r20+: remove the keyboard case's input devices while it is folded behind the
+# tablet or closed (on-screen keyboard returns, as on HyperOS). 0 = keep them and only drop
+# the key presses.
+KEYBOARD_FOLD_REMOVE=1
+
+# Run xiaomi-keyboard (fold detection, polls the accelerometer) only while the keyboard
+# case is connected; otherwise it keeps the sensor hub awake all night.
+KEYBOARD_GUARD=1
+
+# Keep SurfaceFlinger + RenderEngine off the little cores (sets the UI First kernel scene our vendor never sets).
+SF_BIG_CORES=1
+
+# system_server's android.anim / android.display / android.ui as UX (window animations hold the WM lock).
+SYSTEM_UX=1
+
+# Keep kswapd (memory reclaim, zram compression) off the prime core (cpu7), so the UI gets it.
+KSWAPD_NO_PRIME=1
+
+# Launcher animation tier (persist.sys.oplus.anim_level): 3 = smoothest with parallel animations (default),
+# 2 = all parallel-animation paths, 1 = ColorOS default, 4 = light animations. Since helper 1.9 there is no tile:
+# change ANIM_LEVEL in /data/misc/pipa_port/config.prop (testing). The ROM default 3 is also in system_ext build.prop (7q).
+ANIM_TIER=1
+ANIM_LEVEL=3
+# 5x: quiet logs (persist.log.tag=I) unless the helper Logs tile says Verbose; 0 = leave persist.log.tag alone
+LOG_QUIET=1
+
+# Xiaomi thermal profile while a game is in the foreground (mi_thermald sconfig; 5l). 20 = no CPU caps below 46 C
+# skin (default), 13 = below 48 C (Xiaomi PUBG value), 10 = below 51 C (no limits), 0 = off (daily profile always).
+GAME_THERMAL_SCENE=20
+
+# Fully compile Settings, the Wi-Fi page and the launcher once per ROM build (SystemUI via
+# dalvik.vm.systemuicompilerfilter=speed). SPEED_APPS overrides the list.
+SPEED_COMPILE=1
+
+
+
+# Google Quick Share: turn its GMS components on once (4l; GMS disabled them while the ROM said "China device").
+QUICK_SHARE=1
+# 5b: a USB-C monitor is an extended screen, not a mirror (once per install)
+EXT_DISPLAY=1
+
+# OPPO file sharing: remove an App Market update of OShare at boot, so the patched ROM copy (4k: tablet -> OPPO
+# phone without the interconnect) stays in use. 0 keeps updates (then sharing needs the interconnect).
+OSHARE_ROLLBACK=1
+
+# Magnetic case: closing it turns the screen off while ColorOS's smart case switch is on
+# (Settings drives global lid_behavior).
+LID_SYNC=0   # the pipa helper (LidKeeper) does this instantly in the ROM
+

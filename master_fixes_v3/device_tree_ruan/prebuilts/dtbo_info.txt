@@ -1,0 +1,1 @@
+See prebuilts/dtbo.img at repository root

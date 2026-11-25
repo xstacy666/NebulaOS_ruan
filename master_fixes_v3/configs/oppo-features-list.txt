@@ -1,0 +1,42 @@
+# OPPO/ColorOS features missing from the ported build (selected from audit)
+# Device Connect
+com.heytap.mydevices
+com.oplus.linker
+com.oplus.beaconlink
+com.oplus.cast
+com.oplus.pantanal.ums
+com.heytap.opluscarlink
+com.oplus.ohome
+# OPPO AI
+com.oplus.obrain
+com.oplus.aiwriter
+com.oplus.aiunit
+com.oplus.aiunit.plugin.cloudEntityExtraction
+com.oplus.aiunit.plugin.fullsearchllm
+com.oplus.aiunit.plugin.livephotomatting
+com.oplus.aiunit.plugin.pcr
+com.aiunit.aon
+com.oplus.aimemory
+com.oplus.aipaper
+com.oplus.aiseal
+com.oplus.aiwidgets
+com.heytap.speechassist
+# Privacy / account handshake
+com.oplus.vip
+com.oplus.member
+com.heytap.openid
+# Common OPPO services
+com.heytap.cloud
+com.heytap.health
+com.heytap.market
+com.heytap.music
+com.heytap.browser
+com.heytap.reader
+com.heytap.themestore
+com.coloros.sharescreen
+com.coloros.translate
+com.coloros.note
+com.oplus.pay
+com.oplus.games
+com.oplus.tips
+com.oplus.member

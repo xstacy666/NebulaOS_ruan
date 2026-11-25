@@ -1,0 +1,6 @@
+id=dt2w_fix_opd2404
+name=DT2W Fix (caramel / OPD2404)
+version=v1.0
+versionCode=1
+author=AntiGem
+description=Fixes double-tap-to-wake on OnePlus OPD2404 with the caramel kernel. The stock kernel never creates /proc/tp_gesture and its dt2w_daemon uses the wrong ioctl mode (14 instead of 24). This module patches lct_tp.ko to init the gesture node and keeps DT2W armed.

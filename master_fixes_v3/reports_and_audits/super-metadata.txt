@@ -1,0 +1,104 @@
+Slot 0:
+Metadata version: 10.2
+Metadata size: 1232 bytes
+Metadata max size: 65536 bytes
+Metadata slot count: 3
+Header flags: virtual_ab_device
+Partition table:
+------------------------
+  Name: odm_a
+  Group: qti_dynamic_partitions_a
+  Attributes: none
+  Extents:
+    0 .. 25951 linear super 2048
+------------------------
+  Name: odm_b
+  Group: qti_dynamic_partitions_b
+  Attributes: none
+  Extents:
+------------------------
+  Name: product_a
+  Group: qti_dynamic_partitions_a
+  Attributes: none
+  Extents:
+    0 .. 441559 linear super 28672
+------------------------
+  Name: product_b
+  Group: qti_dynamic_partitions_b
+  Attributes: none
+  Extents:
+------------------------
+  Name: system_a
+  Group: qti_dynamic_partitions_a
+  Attributes: none
+  Extents:
+    0 .. 7434287 linear super 471040
+------------------------
+  Name: system_b
+  Group: qti_dynamic_partitions_b
+  Attributes: none
+  Extents:
+------------------------
+  Name: system_ext_a
+  Group: qti_dynamic_partitions_a
+  Attributes: none
+  Extents:
+    0 .. 2790375 linear super 7907328
+------------------------
+  Name: system_ext_b
+  Group: qti_dynamic_partitions_b
+  Attributes: none
+  Extents:
+------------------------
+  Name: vendor_a
+  Group: qti_dynamic_partitions_a
+  Attributes: none
+  Extents:
+    0 .. 1743319 linear super 10698752
+------------------------
+  Name: vendor_b
+  Group: qti_dynamic_partitions_b
+  Attributes: none
+  Extents:
+------------------------
+  Name: vendor_dlkm_a
+  Group: qti_dynamic_partitions_a
+  Attributes: none
+  Extents:
+    0 .. 65071 linear super 12443648
+------------------------
+  Name: vendor_dlkm_b
+  Group: qti_dynamic_partitions_b
+  Attributes: none
+  Extents:
+------------------------
+Super partition layout:
+------------------------
+super: 2048 .. 28000: odm_a (25952 sectors)
+super: 28672 .. 470232: product_a (441560 sectors)
+super: 471040 .. 7905328: system_a (7434288 sectors)
+super: 7907328 .. 10697704: system_ext_a (2790376 sectors)
+super: 10698752 .. 12442072: vendor_a (1743320 sectors)
+super: 12443648 .. 12508720: vendor_dlkm_a (65072 sectors)
+------------------------
+Block device table:
+------------------------
+  Partition name: super
+  First sector: 2048
+  Size: 9126805504 bytes
+  Flags: none
+------------------------
+Group table:
+------------------------
+  Name: default
+  Maximum size: 0 bytes
+  Flags: none
+------------------------
+  Name: qti_dynamic_partitions_a
+  Maximum size: 9126805504 bytes
+  Flags: none
+------------------------
+  Name: qti_dynamic_partitions_b
+  Maximum size: 9126805504 bytes
+  Flags: none
+------------------------

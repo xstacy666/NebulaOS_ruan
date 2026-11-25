@@ -1,0 +1,31 @@
+# Fixed 120 Hz + jank reduction for ruan/dizi ColorOS 17 port
+# Sources: noble6/device_xiaomi_ruan props/vendor.prop + props/system_ext.prop,
+#          noble6/strand config/strand.conf, live dumpsys comparison.
+# Inject into the build (product/vendor/system_ext build.prop), no KernelSU.
+
+# --- stop ColorOS VRR; pin panel + content at full 120 Hz ---
+persist.oplus.display.vrr=0
+debug.sf.defer_refresh_rate_when_off=1
+
+# --- SurfaceFlinger work durations: two 120 Hz frames (device tree values) ---
+debug.sf.late.app.duration=16666666
+debug.sf.late.sf.duration=16666666
+debug.sf.early.app.duration=16666666
+debug.sf.early.sf.duration=16666666
+debug.sf.earlyGl.app.duration=16666666
+debug.sf.earlyGl.sf.duration=16666666
+debug.sf.use_phase_offsets_as_durations=1
+debug.sf.set_idle_timer_ms=1100
+
+# --- composition path aligned with the ruan device tree ---
+debug.sf.enable_hwc_vds=1
+vendor.display.vds_allow_hwc=0
+vendor.display.enable_optimize_refresh=0
+vendor.display.enable_dpps_dynamic_fps=0
+vendor.display.disable_mitigated_fps=1
+
+# --- remove full-screen wallpaper blur behind overview / app launch ---
+# Device tree measurement: recents jank 23% -> 3% with depth.overview=false.
+ro.launcher.depth.overview=false
+ro.launcher.blur.appLaunch=0
+persist.sys.sf.disable_blur=1

@@ -113,6 +113,20 @@ Every single feature in this port has been engineered directly into the **read-o
 
 ---
 
+## 🤖 OnePlus Pad 4 / ColorOS 17 Master Port Fixes Package (v3)
+
+All fixes, configurations, donor APKs, SELinux policies, and hardware guides engineered for OnePlus Pad 4 / ColorOS 17 on Redmi Pad Pro 5G (`ruan`) and POCO Pad (`dizi`) are bundled into a self-contained master archive for developers and AI assistants:
+
+- **Master Archive**: [`docs/OnePlus_Pad_Port_Master_Fixes_v3.zip`](docs/OnePlus_Pad_Port_Master_Fixes_v3.zip) (4.8 MB, 351 files)
+- **Complete Source Tree**: [`master_fixes_v3/`](master_fixes_v3/)
+- **Comprehensive Guides**:
+  - [Master Porting Guide](docs/MASTER_PORTING_GUIDE.md): EROFS staging, permissions, lpmake, fastbootd workflow
+  - [Hardware Subsystems Guide](docs/HARDWARE_SUBSYSTEMS_GUIDE.md): Wi-Fi 6, Bluetooth, Audio routing, Calls & Mic, Stylus, DT2W
+  - [Bugs & Solutions Encyclopedia](docs/BUGS_AND_SOLUTIONS.md): 14 critical porting pitfalls and verified resolutions
+  - [AI Agent Instructions](docs/AI_INSTRUCTIONS.md): Turn-key briefing and context for any LLM assistant
+
+---
+
 ## ☁️ Cloud Downloads & AI Cross-Device Sync
 
 ### 📦 Fastboot ROM Package (Google Drive)
