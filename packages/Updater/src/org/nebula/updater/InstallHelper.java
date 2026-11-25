@@ -11,6 +11,28 @@ import java.lang.reflect.Method;
 public class InstallHelper {
     private static final String TAG = "NebulaUpdater";
 
+    public static boolean directAutoInstallAndReboot(Context context, String zipPath) {
+        Log.i(TAG, "Initiating direct auto-install & reboot for: " + zipPath);
+        try {
+            Process p = Runtime.getRuntime().exec("su");
+            DataOutputStream os = new DataOutputStream(p.getOutputStream());
+
+            os.writeBytes("TMP=/data/local/tmp/ota_install\n");
+            os.writeBytes("rm -rf \"$TMP\" && mkdir -p \"$TMP\"\n");
+            os.writeBytes("/data/user/0/ai.antigem/files/usr/bin/unzip -o \"" + zipPath + "\" -d \"$TMP\" 2>/dev/null || unzip -o \"" + zipPath + "\" -d \"$TMP\"\n");
+            os.writeBytes("if [ -f \"$TMP/installer.sh\" ]; then sh \"$TMP/installer.sh\"; fi\n");
+            os.writeBytes("rm -rf \"$TMP\"\n");
+            os.writeBytes("sync\n");
+            os.writeBytes("sleep 2 && /system/bin/reboot\n");
+            os.writeBytes("exit\n");
+            os.flush();
+            return true;
+        } catch (Throwable t) {
+            Log.e(TAG, "directAutoInstallAndReboot failed: " + t.getMessage(), t);
+            return false;
+        }
+    }
+
     public static boolean rebootToRecovery(Context context, String zipPath) {
         Log.i(TAG, "Initiating recovery install for: " + zipPath);
 

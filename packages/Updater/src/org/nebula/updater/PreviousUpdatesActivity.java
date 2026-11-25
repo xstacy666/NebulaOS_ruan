@@ -428,7 +428,7 @@ public class PreviousUpdatesActivity extends Activity {
                     mBtn.setText("Install Update (.apk)");
                     MainActivity.installApk(PreviousUpdatesActivity.this, mDestFile.getAbsolutePath());
                 } else {
-                    mBtn.setText("Install via Recovery");
+                    mBtn.setText("Auto-Install & Reboot");
                     MainActivity.confirmInstall(PreviousUpdatesActivity.this, mDestFile.getAbsolutePath());
                 }
                 mBtn.setBackgroundResource(R.drawable.bg_ios_glass_button_primary);

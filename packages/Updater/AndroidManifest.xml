@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="org.nebula.updater"
-    android:versionCode="208"
-    android:versionName="17.0.0.208">
+    android:versionCode="209"
+    android:versionName="17.0.0.209">
 
     <uses-sdk android:minSdkVersion="30" android:targetSdkVersion="34" />
 

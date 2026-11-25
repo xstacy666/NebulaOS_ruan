@@ -159,7 +159,7 @@ public class MainActivity extends Activity {
             if (mFileName.endsWith(".apk")) {
                 btnAction.setText("Install Update (.apk)");
             } else {
-                btnAction.setText("Install via OrangeFox Recovery");
+                btnAction.setText("Auto-Install & Reboot");
             }
             btnAction.setBackgroundResource(R.drawable.bg_ios_glass_button_primary);
         }
@@ -855,7 +855,7 @@ public class MainActivity extends Activity {
                 if (mFileName.endsWith(".apk")) {
                     btnAction.setText("Install Update (.apk)");
                 } else {
-                    btnAction.setText("Install via OrangeFox Recovery");
+                    btnAction.setText("Auto-Install & Reboot");
                 }
                 btnAction.setBackgroundResource(R.drawable.bg_ios_glass_button_primary);
                 Toast.makeText(MainActivity.this, "Download completed!", Toast.LENGTH_SHORT).show();
@@ -910,10 +910,21 @@ public class MainActivity extends Activity {
     }
 
     public static void confirmInstall(Activity activity, String zipPath) {
+        String[] options = {
+            "⚡ Direct Auto-Install & Reboot (Recommended - No Recovery Needed)",
+            "📦 Install via OrangeFox Recovery"
+        };
+
         new AlertDialog.Builder(activity)
-                .setTitle("Install via OrangeFox Recovery")
-                .setMessage("Your tablet will configure the recovery commands and reboot into OrangeFox Recovery to install the update.\n\nPackage:\n" + zipPath + "\n\nApps, settings, and personal data will NOT be wiped.\n\nProceed?")
-                .setPositiveButton("Reboot & Install", (dialog, which) -> executeInstall(activity, zipPath))
+                .setTitle("Install Nebula OS Update")
+                .setItems(options, (dialog, which) -> {
+                    if (which == 0) {
+                        Toast.makeText(activity, "Applying update... Rebooting in 3 seconds!", Toast.LENGTH_LONG).show();
+                        InstallHelper.directAutoInstallAndReboot(activity, zipPath);
+                    } else {
+                        executeInstall(activity, zipPath);
+                    }
+                })
                 .setNegativeButton("Cancel", null)
                 .show();
     }
