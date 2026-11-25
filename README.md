@@ -81,11 +81,22 @@ Every single feature in this port has been engineered directly into the **read-o
 - **OTA Infrastructure**: Connected directly to the live GitHub releases feed [`xstacy666/NebulaOS_ruan_ota`](https://github.com/xstacy666/NebulaOS_ruan_ota) with direct Google Drive cloud package downloads.
 - Source code in [`packages/Updater/`](packages/Updater/).
 
+### 9. 🎨 Flux Themes & Decoupage Wallpapers (Offline Preload)
+- **Preloaded Offline Catalog (343 MB)**: Over 80 official ColorOS 15/17 Flux Themes (Blossoms, Calm, Composition, Galaxy, Healing, Light & Shadow, Rhythm, Definition, Mountain, Photo Frame Clock, Present, Tail, Tinting, With the Light) baked directly into `/system_ext/etc/wallpaper_preload/`.
+- **Automated First-Boot Provisioning**: Integrated into `dt2w_service.sh` to populate `InspirationTheme-db` and theme assets automatically upon clean flash or factory reset without network dependency.
+- **Lockscreen Depth & Clocks**: Complete depth-of-field separation, customized lockscreen typography, and fluid clocks enabled via `wallpaper_feature.xml`.
+
+### 10. ⚡ High-Performance 120Hz Screen Rotation & Orientation Tuning
+- **Qualcomm HWC Acceleration**: Enabled direct hardware display plane rotation (`debug.sf.ignore_hwc_physical_display_orientation=false`), eliminating GPU/CPU re-composition latency and stutter.
+- **Display Idle Exit Boost**: Set `ro.display.rotation_exit_idle_support=true` to instantly elevate panel refresh rate to 120Hz during orientation transitions.
+- **Seamless Fixed Transform**: Enabled `persist.wm.enable_fixed_rotation_transform=true` to pre-render window layouts in background, preventing visual jerks or black freeze-locks.
+- **Low-Latency Sensor Direct Channel**: Enabled direct channel and synchronized requests on Bosch BMI3x0 / Qualcomm orientation sensors (`persist.vendor.sensors.allow_direct_channel=1`, `sync_req=true`).
+
 ---
 
 ## 💻 Flashing Instructions
 
-1. Download the latest Fastboot ROM package: `ColorOS17_Android17_RedmiPadPro_ruan_dizi_Fastboot_v105.7z`.
+1. Download the latest Fastboot ROM package: `ColorOS17_Android17_RedmiPadPro_ruan_dizi_Fastboot_v106.7z`.
 2. Extract the archive completely.
 3. Reboot your tablet to Fastboot mode:
    ```bash
@@ -105,8 +116,10 @@ Every single feature in this port has been engineered directly into the **read-o
 ## ☁️ Cloud Downloads & AI Cross-Device Sync
 
 ### 📦 Fastboot ROM Package (Google Drive)
-- **Latest Build (3.84 GB)**: `ColorOS17_Android17_RedmiPadPro_ruan_dizi_Fastboot_v105.7z`
+- **Latest Build (4.07 GB / v106)**: `ColorOS17_Android17_RedmiPadPro_ruan_dizi_Fastboot_v106.7z`
 - **Location**: Google Drive **`Rom port`** folder (Account: `hardikmpatil@gmail.com`).
+- **MD5**: `004ffd094e2eafffa0e7264c0f20fa29`
+- **SHA-256**: `a0fa97c2c3e7a747701b29d941b925d2870205ebbcffc7fe4246dae58a8271bc`
 - **MD5**: `5a424f8d00eb1f0a125a8db354ca414d`
 - **SHA-256**: `56c6311b94215e17a984a91b100873cbd286eb68bfb8ec464e10f4ab7d7bd642`
 

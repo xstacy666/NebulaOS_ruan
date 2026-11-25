@@ -89,10 +89,11 @@ public class OtaCheckJobService extends JobService {
             if (update != null) {
                 String latestVer = update.optString("version", "");
                 long latestCode = update.optLong("version_code", 0);
+                String filename = update.optString("filename", "");
                 String url = update.optString("url", "");
                 String changelog = update.optString("changelog", "System improvements and bug fixes.");
 
-                if (MainActivity.isNewUpdate(latestVer, latestCode)) {
+                if (MainActivity.isNewUpdate(OtaCheckJobService.this, latestVer, latestCode, filename)) {
                     Log.i(TAG, "New OTA update discovered: " + latestVer + " (code: " + latestCode + ")");
                     postUpdateNotification(latestVer, latestCode, url, changelog);
                 } else {

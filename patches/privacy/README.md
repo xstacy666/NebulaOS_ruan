@@ -14,6 +14,13 @@ On ColorOS 17 ported from OnePlus Pad 2 (`OPD2404`) to Redmi Pad Pro 5G (`ruan`)
    - On non-Oppo/OnePlus Qualcomm hardware, the SoC lacks OnePlus's proprietary Trustlet Application (TA) in Qualcomm QSEE / TrustZone.
    - Consequently, the vendor HAL crashed or failed to bind, leaving the App Lock daemon without a valid crypto backend.
 
+3. **SELinux blocks app domains from calling the replacement cryptoeng HAL** (confirmed from logcat):
+   - The clean-room service runs as `u:r:hal_gatekeeper_default:s0` (labelled `hal_gatekeeper_default_exec`).
+   - Settings, SystemUI and Find My Phone are denied the binder call:
+     `avc: denied { call } scontext=u:r:system_app:s0 tcontext=u:r:hal_gatekeeper_default:s0 tclass=binder`
+   - Every privacy-password step logs this denial; PMS enrollment is aborted even though both bytecode patches are present.
+   - Fixed in source by `sepolicy/vendor/cryptoeng.te` (compiled into the ROM sepolicy — no root/KSU module needed): the HAL domain becomes `mlstrustedobject` and `system_app`, `platform_app`, `priv_app` get `binder { call transfer }` + `fd use`.
+
 ---
 
 ## Solutions Implemented

@@ -1,0 +1,20 @@
+# Privacy Password / App Lock (OPlus PMS) fix.
+#
+# The clean-room cryptoeng-hal-service replaces the OnePlus proprietary
+# cryptoeng HAL.  It is started from init with the hal_gatekeeper_default
+# domain (see vendor_file_contexts).  ColorOS Settings (system_app), SystemUI
+# (platform_app) and Find My Phone (priv_app) all bind to the PMS service to
+# enroll / verify the privacy password and to drive App Lock.  Without the
+# rules below SELinux blocks those binder calls:
+#
+#   avc: denied { call } scontext=u:r:system_app:s0
+#        tcontext=u:r:hal_gatekeeper_default:s0 tclass=binder
+#
+# which makes "Privacy password" setup abort right after LinkAccountActivity.
+
+# App domains carry MLS categories (s0:c512,c768); the HAL runs at s0.
+# Mark the HAL as an MLS-trusted object so those binder calls are allowed.
+typeattribute hal_gatekeeper_default mlstrustedobject;
+
+allow { system_app platform_app priv_app } hal_gatekeeper_default:binder { call transfer };
+allow { system_app platform_app priv_app } hal_gatekeeper_default:fd use;

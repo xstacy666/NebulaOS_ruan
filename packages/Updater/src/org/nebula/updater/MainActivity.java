@@ -139,6 +139,17 @@ public class MainActivity extends Activity {
 
     private void checkExistingDownloadedFile() {
         if (mUpdateDest.exists() && mUpdateDest.length() > 10240) {
+            if (mFileName.endsWith(".apk")) {
+                try {
+                    long currentAppCode = getPackageManager().getPackageInfo(getPackageName(), 0).getLongVersionCode();
+                    if (mLatestVersionCode > 0 && currentAppCode >= mLatestVersionCode) {
+                        mUpdateDest.delete();
+                        mIsDownloaded = false;
+                        return;
+                    }
+                } catch (Exception ignored) {}
+            }
+
             mIsDownloaded = true;
             tvStatusTitle.setText("Update Ready to Install");
             long sizeKb = mUpdateDest.length() / 1024;
@@ -148,7 +159,7 @@ public class MainActivity extends Activity {
             if (mFileName.endsWith(".apk")) {
                 btnAction.setText("Install Update (.apk)");
             } else {
-                btnAction.setText("Install via OrangeFox Recovery");
+                btnAction.setText("Auto-Install & Reboot");
             }
             btnAction.setBackgroundResource(R.drawable.bg_ios_glass_button_primary);
         }
@@ -449,7 +460,7 @@ public class MainActivity extends Activity {
                 mFileName = update.optString("filename", DEFAULT_UPDATE_FILE);
                 mUpdateDest = new File("/sdcard/Download/" + mFileName);
 
-                if (isNewUpdate(mLatestVersion, mLatestVersionCode)) {
+                if (isNewUpdate(MainActivity.this, mLatestVersion, mLatestVersionCode, mFileName)) {
                     mHasUpdate = true;
                     tvStatusTitle.setText(versionName);
                     String sizeText = "";
@@ -482,7 +493,16 @@ public class MainActivity extends Activity {
         }
     }
 
-    public static boolean isNewUpdate(String remoteVer, long remoteCode) {
+    public static boolean isNewUpdate(Context context, String remoteVer, long remoteCode, String filename) {
+        if (filename != null && filename.endsWith(".apk") && context != null) {
+            try {
+                long currentAppCode = context.getPackageManager().getPackageInfo(context.getPackageName(), 0).getLongVersionCode();
+                if (remoteCode > 0) {
+                    return remoteCode > currentAppCode;
+                }
+            } catch (Exception ignored) {}
+        }
+
         long currentCode = getLongProp("ro.nebula.version.code", 0);
         if (remoteCode > 0 && currentCode > 0) {
             return remoteCode > currentCode;
@@ -495,6 +515,10 @@ public class MainActivity extends Activity {
 
         if (remoteVer == null || remoteVer.isEmpty()) return false;
         return !remoteVer.trim().equalsIgnoreCase(currentVer.trim());
+    }
+
+    public static boolean isNewUpdate(String remoteVer, long remoteCode) {
+        return isNewUpdate(null, remoteVer, remoteCode, null);
     }
 
     private void startDownload() {
@@ -831,7 +855,7 @@ public class MainActivity extends Activity {
                 if (mFileName.endsWith(".apk")) {
                     btnAction.setText("Install Update (.apk)");
                 } else {
-                    btnAction.setText("Install via OrangeFox Recovery");
+                    btnAction.setText("Auto-Install & Reboot");
                 }
                 btnAction.setBackgroundResource(R.drawable.bg_ios_glass_button_primary);
                 Toast.makeText(MainActivity.this, "Download completed!", Toast.LENGTH_SHORT).show();
@@ -864,6 +888,12 @@ public class MainActivity extends Activity {
                 .setTitle("Install Nebula OS Update")
                 .setMessage("A system app update is ready to install.\n\nPackage:\n" + apkFile.getName() + " (" + (apkFile.length() / 1024) + " KB)\n\nProceed to install?")
                 .setPositiveButton("Install", (d, w) -> {
+                    // Try privileged / silent install first
+                    if (InstallHelper.silentInstallApk(apkFile.getAbsolutePath())) {
+                        Toast.makeText(activity, "Update installed successfully!", Toast.LENGTH_SHORT).show();
+                        activity.recreate();
+                        return;
+                    }
                     try {
                         Intent intent = new Intent(Intent.ACTION_VIEW);
                         Uri apkUri = Uri.parse("content://org.nebula.updater.provider" + apkFile.getAbsolutePath());
@@ -880,10 +910,21 @@ public class MainActivity extends Activity {
     }
 
     public static void confirmInstall(Activity activity, String zipPath) {
+        String[] options = {
+            "⚡ Direct Auto-Install & Reboot (Recommended - No Recovery Needed)",
+            "📦 Install via OrangeFox Recovery"
+        };
+
         new AlertDialog.Builder(activity)
-                .setTitle("Install via OrangeFox Recovery")
-                .setMessage("Your tablet will configure the recovery commands and reboot into OrangeFox Recovery to install the update.\n\nPackage:\n" + zipPath + "\n\nApps, settings, and personal data will NOT be wiped.\n\nProceed?")
-                .setPositiveButton("Reboot & Install", (dialog, which) -> executeInstall(activity, zipPath))
+                .setTitle("Install Nebula OS Update")
+                .setItems(options, (dialog, which) -> {
+                    if (which == 0) {
+                        Toast.makeText(activity, "Applying update... Rebooting in 3 seconds!", Toast.LENGTH_LONG).show();
+                        InstallHelper.directAutoInstallAndReboot(activity, zipPath);
+                    } else {
+                        executeInstall(activity, zipPath);
+                    }
+                })
                 .setNegativeButton("Cancel", null)
                 .show();
     }
