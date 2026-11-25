@@ -116,8 +116,10 @@ Every single feature in this port has been engineered directly into the **read-o
 ## ☁️ Cloud Downloads & AI Cross-Device Sync
 
 ### 📦 Fastboot ROM Package (Google Drive)
-- **Latest Build (v106 / Android 17)**: `ColorOS17_Android17_RedmiPadPro_ruan_dizi_Fastboot_v106.7z`
+- **Latest Build (4.07 GB / v106)**: `ColorOS17_Android17_RedmiPadPro_ruan_dizi_Fastboot_v106.7z`
 - **Location**: Google Drive **`Rom port`** folder (Account: `hardikmpatil@gmail.com`).
+- **MD5**: `004ffd094e2eafffa0e7264c0f20fa29`
+- **SHA-256**: `a0fa97c2c3e7a747701b29d941b925d2870205ebbcffc7fe4246dae58a8271bc`
 - **MD5**: `5a424f8d00eb1f0a125a8db354ca414d`
 - **SHA-256**: `56c6311b94215e17a984a91b100873cbd286eb68bfb8ec464e10f4ab7d7bd642`
 
