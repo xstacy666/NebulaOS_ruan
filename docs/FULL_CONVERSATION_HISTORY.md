@@ -3753,3 +3753,75 @@ Which way would you like to do it? (If you have AntiGem open on your phone, **Op
 
 > i rand rhe command it said the conversation doesn't exit fix it
 
+
+---
+
+## Session continuation — 2026-11-25 (privacy password + ext4 ROM)
+
+### Request
+Connect adb, obtain root + accessibility, debug why the privacy password is
+not working, collect logs, fix it, verify, package it, and sync to GitHub.
+Later: convert the fastboot ROM from EROFS to ext4, delete old builds, back up
+the whole conversation into the repo, and upload the build to Google Drive.
+
+### Environment
+- Device: OnePlus Pad 2 `OPD2404` / `parrot`, ColorOS 17, Android 15 (SDK 37).
+- `adb root` works, `su` = KernelSU context; AntiGem accessibility service
+  `ai.antigem/...AutomationAccessibilityService` already enabled.
+- Both local and `emulator-5554` adb targets are the same device.
+- Donor dump: `/storage/emulated/0/oneplus dump/OPD2404_17.0.0.102_20260924`
+- Base ROM: `/storage/emulated/0/Download/ColorOS17_Android17_RedmiPadPro_ruan_dizi_Fastboot_v106.7z`
+
+### Root cause found (logcat)
+1. `LinkAccountActivity` launches during `ChooseNumberPrivacy`, finishes ~1 s
+   later (`wm_finish_activity ... app-request`), the parent gets
+   `RESULT_CANCELED` and aborts the whole flow — matching the older bytecode
+   analysis. Both `classes8.dex` patches WERE already present and valid in the
+   flashed `Settings.apk`.
+2. Persistent SELinux denial on every privacy step:
+   `avc: denied { call } scontext=u:r:system_app:s0
+    tcontext=u:r:hal_gatekeeper_default:s0 tclass=binder permissive=0`
+   (also `platform_app` / SystemUI and `priv_app` / Find My Phone). The custom
+   Rust cryptoeng AIDL HAL runs in `hal_gatekeeper_default`, which app domains
+   may not call. This was the missing piece.
+
+### Fix (no KernelSU dependency)
+- Added `sepolicy/vendor/cryptoeng.te` (compiled into ROM sepolicy):
+  `typeattribute hal_gatekeeper_default mlstrustedobject;` plus
+  `binder { call transfer }` and `fd use` for `system_app`, `platform_app`,
+  `priv_app`. Documented in `patches/privacy/README.md`.
+- The privacy fix OTA zip on the device was broken: its `update-binary` had
+  every `$` variable stripped (empty `FD=`, `ZIPFILE=`, `rm -rf ""`, etc.).
+- Live root/overlay experiments are session-scoped; durable fixes must be
+  baked into images.
+
+### Fastboot ROM conversion (v106 -> v107-ext4)
+- Verified archive integrity; unpacked `super.img` (6 partitions: odm, product,
+  system, system_ext, vendor, vendor_dlkm — all EROFS).
+- Converted `vendor`, `product`, `odm`, `vendor_dlkm`, `system_ext` to ext4
+  with `fsck.erofs --extract` + `mkfs.ext4 -m 0 -I 256` + `e2fsdroid -S
+  <file_contexts>` (correct SELinux labels verified by loop-mount).
+- Injected the cryptoeng CIL rules into
+  `vendor/etc/selinux/vendor_sepolicy.cil` before building the ext4 image.
+- `system` stays EROFS: all-six ext4 needs 9.99 GB but `super` is 9.13 GB.
+- Rebuilt `super.img` with `lpmake --virtual-ab`, preserving
+  `qti_dynamic_partitions_a/b` groups.
+- Added `INSTRUCTIONS.md`, fixed flash scripts, produced:
+  `ColorOS17_Android17_RedmiPadPro_ruan_dizi_Fastboot_v107_ext4.7z`
+- Dirty flash via OrangeFox is supported by a separate no-wipe OFOX zip that
+  `dd`s the images without touching `/data`.
+
+### Storage cleanup
+Deleted old v105/duplicate ROM builds, broken privacy-fix zip, failed scratch
+APK variants, old `Fastboot_ROM/` extraction, and temp dex/bugreport files.
+Kept v106 source, donor dump, and current build tree.
+
+### Conversation backup
+- Live DB: `~/.gemini/antigravity-cli/conversations/7598b521-....db` (159 MB).
+- Copied to `docs/session_backup/2026-11-25_live/` and archived as
+  `docs/session_backup/conversation_db_backup_2026-11-25.tar.gz` so the chat can
+  be restored after a data wipe by syncing this repo.
+
+### Outstanding
+- Upload the finished 7z to Google Drive (`Rom port` folder, Hardik Patil account).
+- Restore `setenforce 1` after final live verification.
