@@ -888,6 +888,12 @@ public class MainActivity extends Activity {
                 .setTitle("Install Nebula OS Update")
                 .setMessage("A system app update is ready to install.\n\nPackage:\n" + apkFile.getName() + " (" + (apkFile.length() / 1024) + " KB)\n\nProceed to install?")
                 .setPositiveButton("Install", (d, w) -> {
+                    // Try privileged / silent install first
+                    if (InstallHelper.silentInstallApk(apkFile.getAbsolutePath())) {
+                        Toast.makeText(activity, "Update installed successfully!", Toast.LENGTH_SHORT).show();
+                        activity.recreate();
+                        return;
+                    }
                     try {
                         Intent intent = new Intent(Intent.ACTION_VIEW);
                         Uri apkUri = Uri.parse("content://org.nebula.updater.provider" + apkFile.getAbsolutePath());

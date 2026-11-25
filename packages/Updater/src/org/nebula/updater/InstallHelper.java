@@ -33,7 +33,7 @@ public class InstallHelper {
             Log.w(TAG, "su reboot failed: " + t.getMessage());
         }
 
-        // 3. PowerManager reboot
+        // 3. PowerManager reboot (privileged permission)
         try {
             PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
             if (pm != null) {
@@ -64,6 +64,21 @@ public class InstallHelper {
         }
 
         return false;
+    }
+
+    public static boolean silentInstallApk(String apkPath) {
+        try {
+            Process p = Runtime.getRuntime().exec("su");
+            DataOutputStream os = new DataOutputStream(p.getOutputStream());
+            os.writeBytes("pm install -r \"" + apkPath + "\"\n");
+            os.writeBytes("exit\n");
+            os.flush();
+            int res = p.waitFor();
+            return (res == 0);
+        } catch (Throwable t) {
+            Log.w(TAG, "silentInstallApk failed: " + t.getMessage());
+            return false;
+        }
     }
 
     public static void writeRecoveryCommands(String zipPath) {
