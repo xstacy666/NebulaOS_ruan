@@ -58,6 +58,7 @@ public class MainActivity extends Activity {
     private ProgressBar pbDownload;
     private TextView tvProgress;
     private Button btnAction;
+    private Button btnPreviousUpdates;
     private ImageView btnBack;
     private ImageView btnMore;
 
@@ -97,6 +98,7 @@ public class MainActivity extends Activity {
         pbDownload = findViewById(R.id.pb_download);
         tvProgress = findViewById(R.id.tv_progress);
         btnAction = findViewById(R.id.btn_action);
+        btnPreviousUpdates = findViewById(R.id.btn_previous_updates);
 
         loadSystemInfo();
 
@@ -108,13 +110,16 @@ public class MainActivity extends Activity {
             }
         });
         btnMore.setOnClickListener(v -> showMoreOptions());
+        if (btnPreviousUpdates != null) {
+            btnPreviousUpdates.setOnClickListener(v -> openPreviousUpdates());
+        }
 
         btnAction.setOnClickListener(v -> {
             if (mIsDownloaded) {
                 if (mFileName.endsWith(".apk")) {
-                    installApk(mUpdateDest.getAbsolutePath());
+                    installApk(this, mUpdateDest.getAbsolutePath());
                 } else {
-                    confirmInstall(mUpdateDest.getAbsolutePath());
+                    confirmInstall(this, mUpdateDest.getAbsolutePath());
                 }
             } else if (mIsDownloading) {
                 confirmCancelDownload();
@@ -134,6 +139,17 @@ public class MainActivity extends Activity {
 
     private void checkExistingDownloadedFile() {
         if (mUpdateDest.exists() && mUpdateDest.length() > 10240) {
+            if (mFileName.endsWith(".apk")) {
+                try {
+                    long currentAppCode = getPackageManager().getPackageInfo(getPackageName(), 0).getLongVersionCode();
+                    if (mLatestVersionCode > 0 && currentAppCode >= mLatestVersionCode) {
+                        mUpdateDest.delete();
+                        mIsDownloaded = false;
+                        return;
+                    }
+                } catch (Exception ignored) {}
+            }
+
             mIsDownloaded = true;
             tvStatusTitle.setText("Update Ready to Install");
             long sizeKb = mUpdateDest.length() / 1024;
@@ -239,6 +255,7 @@ public class MainActivity extends Activity {
 
     private void showMoreOptions() {
         String[] options = {
+            "Previous updates (History & Rollback)",
             "Local update (Select .zip or .apk)",
             "Check for updates",
             "Open Download link in Browser",
@@ -251,23 +268,31 @@ public class MainActivity extends Activity {
                 .setItems(options, (dialog, which) -> {
                     switch (which) {
                         case 0:
-                            pickLocalUpdateZip();
+                            openPreviousUpdates();
                             break;
                         case 1:
-                            checkForUpdates();
+                            pickLocalUpdateZip();
                             break;
                         case 2:
-                            openUrlInBrowser();
+                            checkForUpdates();
                             break;
                         case 3:
-                            deleteDownloadedUpdate();
+                            openUrlInBrowser();
                             break;
                         case 4:
+                            deleteDownloadedUpdate();
+                            break;
+                        case 5:
                             showAboutDialog();
                             break;
                     }
                 })
                 .show();
+    }
+
+    public void openPreviousUpdates() {
+        Intent intent = new Intent(this, PreviousUpdatesActivity.class);
+        startActivity(intent);
     }
 
     private void openUrlInBrowser() {
@@ -318,9 +343,9 @@ public class MainActivity extends Activity {
 
         if (path != null && new File(path).exists()) {
             if (path.endsWith(".apk")) {
-                installApk(path);
+                installApk(this, path);
             } else {
-                confirmInstall(path);
+                confirmInstall(this, path);
             }
         } else {
             Toast.makeText(this, "Could not resolve file path: " + uri, Toast.LENGTH_LONG).show();
@@ -435,7 +460,7 @@ public class MainActivity extends Activity {
                 mFileName = update.optString("filename", DEFAULT_UPDATE_FILE);
                 mUpdateDest = new File("/sdcard/Download/" + mFileName);
 
-                if (isNewUpdate(mLatestVersion, mLatestVersionCode)) {
+                if (isNewUpdate(MainActivity.this, mLatestVersion, mLatestVersionCode, mFileName)) {
                     mHasUpdate = true;
                     tvStatusTitle.setText(versionName);
                     String sizeText = "";
@@ -468,7 +493,16 @@ public class MainActivity extends Activity {
         }
     }
 
-    public static boolean isNewUpdate(String remoteVer, long remoteCode) {
+    public static boolean isNewUpdate(Context context, String remoteVer, long remoteCode, String filename) {
+        if (filename != null && filename.endsWith(".apk") && context != null) {
+            try {
+                long currentAppCode = context.getPackageManager().getPackageInfo(context.getPackageName(), 0).getLongVersionCode();
+                if (remoteCode > 0) {
+                    return remoteCode > currentAppCode;
+                }
+            } catch (Exception ignored) {}
+        }
+
         long currentCode = getLongProp("ro.nebula.version.code", 0);
         if (remoteCode > 0 && currentCode > 0) {
             return remoteCode > currentCode;
@@ -481,6 +515,10 @@ public class MainActivity extends Activity {
 
         if (remoteVer == null || remoteVer.isEmpty()) return false;
         return !remoteVer.trim().equalsIgnoreCase(currentVer.trim());
+    }
+
+    public static boolean isNewUpdate(String remoteVer, long remoteCode) {
+        return isNewUpdate(null, remoteVer, remoteCode, null);
     }
 
     private void startDownload() {
@@ -839,14 +877,14 @@ public class MainActivity extends Activity {
                 .show();
     }
 
-    private void installApk(String apkPath) {
+    public static void installApk(Activity activity, String apkPath) {
         File apkFile = new File(apkPath);
         if (!apkFile.exists()) {
-            Toast.makeText(this, "APK not found: " + apkPath, Toast.LENGTH_SHORT).show();
+            Toast.makeText(activity, "APK not found: " + apkPath, Toast.LENGTH_SHORT).show();
             return;
         }
 
-        new AlertDialog.Builder(this)
+        new AlertDialog.Builder(activity)
                 .setTitle("Install Nebula OS Update")
                 .setMessage("A system app update is ready to install.\n\nPackage:\n" + apkFile.getName() + " (" + (apkFile.length() / 1024) + " KB)\n\nProceed to install?")
                 .setPositiveButton("Install", (d, w) -> {
@@ -855,30 +893,30 @@ public class MainActivity extends Activity {
                         Uri apkUri = Uri.parse("content://org.nebula.updater.provider" + apkFile.getAbsolutePath());
                         intent.setDataAndType(apkUri, "application/vnd.android.package-archive");
                         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                        startActivity(intent);
+                        activity.startActivity(intent);
                     } catch (Exception e) {
                         Log.w(TAG, "Direct intent install failed: " + e.getMessage());
-                        Toast.makeText(MainActivity.this, "Opening installer: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                        Toast.makeText(activity, "Opening installer: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                     }
                 })
                 .setNegativeButton("Cancel", null)
                 .show();
     }
 
-    private void confirmInstall(String zipPath) {
-        new AlertDialog.Builder(this)
+    public static void confirmInstall(Activity activity, String zipPath) {
+        new AlertDialog.Builder(activity)
                 .setTitle("Install via OrangeFox Recovery")
                 .setMessage("Your tablet will configure the recovery commands and reboot into OrangeFox Recovery to install the update.\n\nPackage:\n" + zipPath + "\n\nApps, settings, and personal data will NOT be wiped.\n\nProceed?")
-                .setPositiveButton("Reboot & Install", (dialog, which) -> executeInstall(zipPath))
+                .setPositiveButton("Reboot & Install", (dialog, which) -> executeInstall(activity, zipPath))
                 .setNegativeButton("Cancel", null)
                 .show();
     }
 
-    private void executeInstall(String zipPath) {
-        Toast.makeText(this, "Rebooting to OrangeFox Recovery...", Toast.LENGTH_SHORT).show();
-        boolean ok = InstallHelper.rebootToRecovery(this, zipPath);
+    public static void executeInstall(Activity activity, String zipPath) {
+        Toast.makeText(activity, "Rebooting to OrangeFox Recovery...", Toast.LENGTH_SHORT).show();
+        boolean ok = InstallHelper.rebootToRecovery(activity, zipPath);
         if (!ok) {
-            Toast.makeText(this, "Could not reboot automatically. Please reboot to recovery manually to flash: " + zipPath, Toast.LENGTH_LONG).show();
+            Toast.makeText(activity, "Could not reboot automatically. Please reboot to recovery manually to flash: " + zipPath, Toast.LENGTH_LONG).show();
         }
     }
 }
