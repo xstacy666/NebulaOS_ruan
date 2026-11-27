@@ -331,6 +331,20 @@ for src, dst in app_mapping:
     else:
         print(f"  [-] Warning: Device Connect source not found for {dst}")
 
+# App feature flags for Device Connect UI (Stock ColorOS Interconnect)
+feat_xml = os.path.join(SYS, 'my_stock/etc/extension/com.oplus.app-features.xml')
+if os.path.exists(feat_xml):
+    f_content = open(feat_xml).read()
+    old_tag = '<app_feature name="oplus.software.padconnect.setting.disabled" args="boolean:true"/>'
+    new_tags = '<app_feature name="oplus.software.padconnect.setting.disabled" args="boolean:false"/>
+	<app_feature name="com.oplus.linker.mix.entrance.settings" args="boolean:true"/>'
+    if old_tag in f_content:
+        f_content = f_content.replace(old_tag, new_tags)
+        open(feat_xml, 'w').write(f_content)
+        print('  [+] Unlocked stock Device Connect UI feature flags in com.oplus.app-features.xml')
+    else:
+        print('  [*] Device Connect UI feature flags already present in com.oplus.app-features.xml')
+
 # Sepolicy rule for IDmtpService
 se_rule_path = os.path.join(VEND, 'etc/ruan_sepolicy.rule')
 if os.path.exists(se_rule_path):
