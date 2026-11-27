@@ -1,5 +1,24 @@
 # Nebula OS Changelog — POCO Pad 5G (`ruan`) & Redmi Pad Pro (`dizi`)
 
+## Build 2.2 (Dynamic Unlocker & Full Hardware Stack Integration)
+- **Dynamic Lockscreen Unlocker (Zero Hardcoding)**:
+  - Bytecode restored to 100% stock OEM ColorOS `SystemUI.apk` (`classes3.dex` offsets `0x42f1f4` and `0x4208f4`).
+  - Added native C standalone SQLite query engine (`sqlite_query`) directly querying locksettings database via `libsqlite.so`.
+  - Added background Dynamic Unlocker service monitoring `/data/system/locksettings.db` mtime:
+    - 4-digit PINs dynamically set `PASSWORD_LENGTH=4` and present 4-dot quick auto-unlock.
+    - 6-digit PINs dynamically set `PASSWORD_LENGTH=6` and present 6-dot quick auto-unlock.
+    - Custom PINs / Alphanumeric passwords set `keyguard_quick_unlock=0` and restore standard keyboard with Enter/OK button.
+- **In-Call Audio & Microphone Routing Fix**:
+  - Re-routed Qualcomm PAL and mixer paths (`mixer_paths_parrot_idp.xml`, `resourcemanager_parrot_idp.xml`) to quad-speakers and dual microphones for VoIP and SIM phone calls.
+- **Wi-Fi 6 MIMO & Bluetooth Codec Optimization**:
+  - Configured Qualcomm QCA6750 for 2x2 MIMO 802.11ax in `WCNSS_qcom_cfg.ini` and regional SAR configs.
+- **Cellular & Telephony Stabilization**:
+  - Excluded eUICC permissions and enabled dynamic RIL detection between `ruan` (5G) and `dizi` (Wi-Fi).
+- **Consolidated Clean Toolchain & Debloat Engine**:
+  - Added `scripts/clean_bloatware.sh` (reclaims 1.11 GB storage while preserving HeyTap/KeKe accounts and Weather).
+  - Added diagnostic and bridge utilities: `device-info.sh`, `recovery-snapshot.sh`, `setup_ssh_bridge.sh`, `usb-adb-connect.py`.
+  - Integrated `docs/ALL_FIXES_GUIDE.md` and complete bug solutions tracker.
+
 ## Build 2.1 (Production Pro Edition — Pure Core Architecture)
 - **Dynamic Hardware Device Identity**:
   - Automatically identifies variant at boot via modem/RIL & SKU detection:

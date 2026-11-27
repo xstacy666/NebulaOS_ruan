@@ -72,14 +72,14 @@ Every single feature in this port has been engineered directly into the **read-o
 
 ### 7. 🚀 Display & Performance Tuning
 - **120Hz Lock**: Enforced 120Hz refresh rate (`min_refresh_rate` and `peak_refresh_rate` = 120.0).
-- **Quick Unlock**: Zero-delay lockscreen PIN unlock (no Enter / OK key required).
+- **Dynamic Lockscreen Unlocker**: Zero-delay lockscreen PIN auto-unlock dynamically handling both 4-digit and 6-digit PINs without hardcoded hacks, preserving pristine OEM stock `SystemUI.apk` bytecode. Standalone C helper `sqlite_query` reads PIN configuration natively from `/data/system/locksettings.db`.
 - **Stock Boot Animation**: Restored pristine stock boot animation with correct orientation.
 
 ### 8. 🔄 Nebula OS Glassy OTA Updater
 - **System Privapp**: Pre-installed in `/system_ext/priv-app/Updater/`.
 - **Modern UI**: Cosmic squircle Nebula logo, frosted glass capsule pill button, fluid animations.
 - **OTA Infrastructure**: Connected directly to the live GitHub releases feed [`xstacy666/NebulaOS_ruan_ota`](https://github.com/xstacy666/NebulaOS_ruan_ota) with direct Google Drive cloud package downloads.
-- Source code in [`packages/Updater/`](packages/Updater/).
+- **Source code in [`packages/Updater/`](packages/Updater/).
 
 ### 9. 🎨 Flux Themes & Decoupage Wallpapers (Offline Preload)
 - **Preloaded Offline Catalog (343 MB)**: Over 80 official ColorOS 15/17 Flux Themes (Blossoms, Calm, Composition, Galaxy, Healing, Light & Shadow, Rhythm, Definition, Mountain, Photo Frame Clock, Present, Tail, Tinting, With the Light) baked directly into `/system_ext/etc/wallpaper_preload/`.
@@ -91,6 +91,11 @@ Every single feature in this port has been engineered directly into the **read-o
 - **Display Idle Exit Boost**: Set `ro.display.rotation_exit_idle_support=true` to instantly elevate panel refresh rate to 120Hz during orientation transitions.
 - **Seamless Fixed Transform**: Enabled `persist.wm.enable_fixed_rotation_transform=true` to pre-render window layouts in background, preventing visual jerks or black freeze-locks.
 - **Low-Latency Sensor Direct Channel**: Enabled direct channel and synchronized requests on Bosch BMI3x0 / Qualcomm orientation sensors (`persist.vendor.sensors.allow_direct_channel=1`, `sync_req=true`).
+
+### 11. 🧹 Surgical Debloat & Clean Build Toolchain
+- **Debloat Optimization (`scripts/clean_bloatware.sh`)**: Reclaims 1.11 GB storage while strictly preserving essential account, credential, login, and Weather components (`KeKeUserCenterAccount`, `OppoWeather`, `com.oplus.vip`).
+- **Clean Partition Repacker (`tools/build_clean_super.sh`)**: Generates pristine sparse `super.img` with native EROFS dynamic partitions.
+- **Comprehensive Fixes Guide**: Detailed hardware documentation and bug solutions in [`docs/ALL_FIXES_GUIDE.md`](docs/ALL_FIXES_GUIDE.md) and [`docs/BUGS_AND_SOLUTIONS.md`](docs/BUGS_AND_SOLUTIONS.md).
 
 ---
 

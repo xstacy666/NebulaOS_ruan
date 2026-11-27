@@ -68,3 +68,71 @@ This document details every major bug encountered during the porting and bring-u
 * **Symptom**: Screen corners have software black rounded corner cutouts that double-round the physical LCD display bezel.
 * **Root Cause**: Software default sets `rounded_corner_radius` based on phone curves.
 * **Fix**: Install `overlays/RuanCornerOverlay.apk` in `/system/overlay/` to set software `rounded_corner_radius=0px`.
+
+---
+
+### Bug 8: Auto-Unlock 4-Digit PIN Lockout & 6-Digit Discrepancy (Dynamic Unlocker)
+* **Symptom**: Setting a 4-digit PIN still displays 6 dots on the lockscreen; typing the 4 digits never unlocks, and the Enter/OK button is hidden, permanently locking out the user.
+* **Root Cause**:
+  1. `SystemUI.apk` (`classes3.dex` offset `0x42f1f4`) had a hardcoded bytecode override returning `6` (`12 60 0f 00`) unconditionally in `KeyguardPasswordUtils.getNumericPwdLength()`.
+  2. `OplusKeyguardSecurityModel.getDeviceSecurityMode()` selects `SecurityMode.PINSix` whenever `getNumericPwdLength() == 6`, hiding the Enter key.
+  3. ColorOS Settings updates `lockscreen.qu.ui.type` inside `/data/system/locksettings.db`, but fails to update `Settings.System.PASSWORD_LENGTH`.
+  4. On ported devices without `OplusAuthCheck` daemon IPC, `persist.sys.ls.ui_type=1` throws a `SecurityException: return code: 1002`, failing to determine PIN length natively.
+* **Fix**:
+  1. Restored `SystemUI.apk`'s `classes3.dex` to 100% stock OEM bytecode:
+     - At `0x42f1f4`: `71 10 7c f7 00 00` (`invoke-static SystemClock.elapsedRealtime()`).
+     - At `0x4208f4`: `62 00 f1 8f` (`sget-object MultiUserContentHelper.Companion`).
+     - Recalculated DEX Adler-32 and SHA-1 headers and APK Central Directory CRC-32.
+  2. Added standalone lightweight C helper `sqlite_query` (`tools/sqlite_query.c`) that directly queries SQLite via `dlopen("libsqlite.so")` with zero external dependencies.
+  3. Embedded **Dynamic Unlocker Daemon** inside `/system_ext/bin/dt2w_service.sh`:
+     - Monitors `/data/system/locksettings.db` mtime.
+     - When `lockscreen.qu.ui.type == 4`: sets `PASSWORD_LENGTH=4`, `keyguard_quick_unlock=1`, and writes `lockscreen.pin_password_length=4`. Keyguard presents 4 dots and instantly unlocks on the 4th digit.
+     - When `lockscreen.qu.ui.type == 6`: sets `PASSWORD_LENGTH=6`, `keyguard_quick_unlock=1`, and writes `lockscreen.pin_password_length=6`. Keyguard presents 6 dots and instantly unlocks on the 6th digit.
+     - When an alphanumeric or custom-length PIN is set: sets `keyguard_quick_unlock=0`, restoring the standard numeric/alphanumeric keyboard with the Enter/OK button.
+  4. Injected `persist.sys.ls.ui_type=0` into `build.prop` so Keyguard reads `PASSWORD_LENGTH` from the first zygote bootstrap.
+
+---
+
+### Bug 9: In-Call Audio & Quad-Speaker Microphone Routing (Cellular + VoIP)
+* **Symptom**: Complete silence (no speaker sound and no microphone input) during WhatsApp, Telegram, Discord, and SIM cellular phone calls.
+* **Root Cause**:
+  1. In Snapdragon 7s Gen 2 (`parrot` / `pineapple` audio HAL), the voice call use case calls `AudioVoice::RouteStream` with incorrect routing stream flags (`AudioVoice11RouteStream`).
+  2. The Xiaomi mixer paths (`mixer_paths_parrot_idp.xml`) and Qualcomm PAL audio resource manager (`resourcemanager_parrot_idp.xml`) routed VoIP and Cellular calls to an uninitialized earpiece handset device instead of the quad-speaker array and dual digital microphones.
+* **Fix**:
+  1. Replaced `/vendor/etc/audio/mixer_paths_parrot_idp.xml` and `/vendor/etc/audio/resourcemanager_parrot_idp.xml` with properly mapped voice streams routing `voice-call` and `voice-communication` to Speaker (`quad-spkr`) and top/bottom dual mics.
+  2. Updated `/vendor/etc/audio_policy_configuration.xml` to declare voice communication endpoints for both `primary` and `usb` audio routes.
+
+---
+
+### Bug 10: Wi-Fi 6 (QCA6750) 2x2 MIMO & Bluetooth Audio Stutter
+* **Symptom**: Wi-Fi drops intermittently, 5GHz band instability, and high-bitrate Bluetooth audio codecs (LDAC, aptX Adaptive) suffer audio stuttering or dropouts.
+* **Root Cause**:
+  1. Qualcomm QCA6750 Wi-Fi/BT combo chip expects exact regional SAR power limits (`n83_default_sar.xml`) and config parameters in `/vendor/etc/wifi/qca6750/WCNSS_qcom_cfg.ini`.
+  2. ColorOS stock configuration defaulted to single-antenna SISO mode (`gEnableMuBform=0`).
+* **Fix**:
+  1. Tuned `WCNSS_qcom_cfg.ini` for dual-band 2x2 MIMO 802.11ax.
+  2. Integrated overlay configurations for `wpa_supplicant` and Wi-Fi Direct P2P (`p2p_supplicant_overlay.conf`).
+  3. Synchronized Bluetooth HAL manifest entries in `manifest_ruan.xml`.
+
+---
+
+### Bug 11: Cellular / SIM & Mobile Network (Ruan 5G vs Dizi Wi-Fi)
+* **Symptom**: On `ruan` (5G SIM variant), mobile data drops or fails VoLTE registration. On `dizi` (Wi-Fi only), system logs flood with continuous RIL retries and battery drain attempting to connect to a non-existent baseband modem.
+* **Root Cause**:
+  1. Android telephony packages default to eUICC / eSIM lookup, crashing on hardware lacking eUICC chips.
+  2. Fixed telephony configuration lacked variant-specific hardware branching.
+* **Fix**:
+  1. Integrated `android.hardware.telephony.exclude-euicc.xml` in `/vendor/etc/permissions/` to purge eUICC requirements.
+  2. Added dynamic RIL detection on boot: on `dizi`, telephony services sleep gracefully without CPU wake locks or modem panics.
+  3. Added `CarrierConfigOverlayRuan` correcting APN and 5G SA/NSA band definitions.
+
+---
+
+### Bug 12: Device Connect (OPlus Synergy / Cross-Device Link)
+* **Symptom**: "Device Connect" item was missing or failing to launch in Settings homepage.
+* **Root Cause**:
+  1. `com.oplus.wirelesssettings.DEVICE_CONNECT` activity is gated by `com.oplus.subsys` binder connection to `IDmtpService` (`default_android_hwservice`).
+  2. Tablet layout fragment in `SettingsHomepageActivity` lacked direct intent forwarding.
+* **Fix**:
+  1. Added SELinux permission allowing `system_app` access to `default_android_hwservice` (`IDmtpService`).
+  2. Enabled direct intent target `com.oplus.wirelesssettings/.DeviceConnectActivity` via `settings_feature_config.xml`.
