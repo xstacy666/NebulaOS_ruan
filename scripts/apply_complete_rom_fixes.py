@@ -177,9 +177,13 @@ crypto_rc = os.path.join(SEXT, 'etc/init/cryptoeng.rc')
 os.makedirs(os.path.dirname(crypto_rc), exist_ok=True)
 with open(crypto_rc, 'w') as f:
     f.write("""service vendor.oplus.hardware.cryptoeng-service /system_ext/bin/cryptoeng-hal-service
-    class hal
+    class late_start
     user system
     group system
+    disabled
+
+on property:sys.boot_completed=1
+    start vendor.oplus.hardware.cryptoeng-service
 """)
 os.chmod(crypto_rc, 0o644)
 print(f"  [+] Verified {crypto_rc}")
@@ -456,9 +460,10 @@ for tree in [SYS, SEXT, PROD, VEND, VDLKM]:
     t_name = os.path.basename(tree)
     subprocess.run(["find", tree, "-type", "d", "-exec", "chmod", "755", "{}", "+"], check=True)
     subprocess.run(["find", tree, "-type", "f", "-exec", "chmod", "644", "{}", "+"], check=True)
-    bin_dir = os.path.join(tree, "bin")
-    if os.path.exists(bin_dir):
-        subprocess.run(["find", bin_dir, "-type", "f", "-exec", "chmod", "755", "{}", "+"], check=True)
+    for bname in ["bin", "xbin", "system/bin", "system/xbin", "system/etc/compatible/com.android.art/bin"]:
+        bpath = os.path.join(tree, bname)
+        if os.path.exists(bpath) and not os.path.islink(bpath):
+            subprocess.run(["find", bpath, "-type", "f", "-exec", "chmod", "755", "{}", "+"], check=True)
     print(f"  [+] Permissions enforced for {t_name}")
 
 # ==============================================================================

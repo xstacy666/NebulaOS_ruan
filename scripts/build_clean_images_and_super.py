@@ -65,12 +65,21 @@ print("================================================================")
 
 total_start = time.time()
 
+# Remove old super.img to free up storage space immediately
+if os.path.exists(FINAL_SUPER):
+    print(f"[*] Freeing space: removing old {FINAL_SUPER} ({os.path.getsize(FINAL_SUPER) / (1024*1024):.1f} MB)...")
+    os.remove(FINAL_SUPER)
+
 for job in jobs:
     name = job['name']
     out_img = job['out']
     src_dir = job['src']
     mp = job['mp']
     fc = job['fc']
+
+    if name in ['product_a', 'vendor_a', 'vendor_dlkm_a'] and os.path.exists(out_img):
+        print(f"[*] Skipping already compiled unchanged image: {name}.img ({os.path.getsize(out_img) / (1024*1024):.1f} MB)")
+        continue
 
     print(f"\n[*] Compiling {name}.img from {src_dir} (mount-point: {mp})...")
     cmd = [
