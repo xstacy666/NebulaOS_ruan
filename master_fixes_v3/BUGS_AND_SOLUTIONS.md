@@ -68,3 +68,26 @@ This document details every major bug encountered during the porting and bring-u
 * **Symptom**: Screen corners have software black rounded corner cutouts that double-round the physical LCD display bezel.
 * **Root Cause**: Software default sets `rounded_corner_radius` based on phone curves.
 * **Fix**: Install `overlays/RuanCornerOverlay.apk` in `/system/overlay/` to set software `rounded_corner_radius=0px`.
+
+---
+
+### Bug 8: Auto-Unlock 4-Digit PIN Lockout & 6-Digit Discrepancy (Dynamic Unlocker)
+* **Symptom**: Setting a 4-digit PIN still shows 6 dots on lockscreen; upon typing the 4 digits, auto-unlock never fires and no Enter/OK button is shown, locking out the user.
+* **Root Cause**:
+  1. `SystemUI.apk` (`classes3.dex` offset `0x42f1f4`) had a hardcoded bytecode override returning `6` (`12 60 0f 00`) unconditionally in `KeyguardPasswordUtils.getNumericPwdLength()`.
+  2. `OplusKeyguardSecurityModel.getDeviceSecurityMode()` selects `SecurityMode.PINSix` whenever `getNumericPwdLength() == 6`, hiding the Enter key.
+  3. ColorOS Settings updates `lockscreen.qu.ui.type` inside `/data/system/locksettings.db`, but fails to update `Settings.System.PASSWORD_LENGTH`.
+  4. On ported devices without `OplusAuthCheck` daemon IPC, `persist.sys.ls.ui_type=1` throws a `SecurityException: return code: 1002`, failing to determine PIN length natively.
+* **Fix**:
+  1. Restored `SystemUI.apk`'s `classes3.dex` to 100% stock OEM bytecode:
+     - At `0x42f1f4`: `71 10 7c f7 00 00` (`invoke-static SystemClock.elapsedRealtime()`).
+     - At `0x4208f4`: `62 00 f1 8f` (`sget-object MultiUserContentHelper.Companion`).
+     - Recalculated DEX Adler-32 and SHA-1 headers and APK Central Directory CRC-32.
+  2. Added standalone lightweight C helper `sqlite_query` (`tools/sqlite_query.c`) that directly queries SQLite via `dlopen("libsqlite.so")` with zero dependencies.
+  3. Embedded **Dynamic Unlocker Daemon** inside `/system_ext/bin/dt2w_service.sh`:
+     - Monitors `/data/system/locksettings.db` mtime.
+     - When `lockscreen.qu.ui.type == 4`: sets `PASSWORD_LENGTH=4`, `keyguard_quick_unlock=1`, and writes `lockscreen.pin_password_length=4`. Keyguard presents 4 dots and instantly unlocks on the 4th digit.
+     - When `lockscreen.qu.ui.type == 6`: sets `PASSWORD_LENGTH=6`, `keyguard_quick_unlock=1`, and writes `lockscreen.pin_password_length=6`. Keyguard presents 6 dots and instantly unlocks on the 6th digit.
+     - When an alphanumeric or custom-length PIN is set: sets `keyguard_quick_unlock=0`, restoring the standard numeric/alphanumeric keyboard with the Enter/OK button.
+  4. Injected `persist.sys.ls.ui_type=0` into `build.prop` so Keyguard reads `PASSWORD_LENGTH` from the first zygote bootstrap.
+
