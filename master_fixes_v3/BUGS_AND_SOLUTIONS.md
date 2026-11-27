@@ -80,7 +80,7 @@ This document details every major bug encountered during the porting and bring-u
   4. On ported devices without `OplusAuthCheck` daemon IPC, `persist.sys.ls.ui_type=1` throws a `SecurityException: return code: 1002`, failing to determine PIN length natively.
 * **Fix**:
   1. Restored `SystemUI.apk`'s `classes3.dex` to 100% stock OEM bytecode:
-     - At `0x42f1f4`: `71 10 7c f7 00 00` (`invoke-static SystemClock.elapsedRealtime()`).
+     - At `0x42f1f4`: `71 00 3a 07 00 00` (`invoke-static {}, SystemClock.elapsedRealtime:()J`), resolving the `VerifyError` caused by incorrect method indexing.
      - At `0x4208f4`: `62 00 f1 8f` (`sget-object MultiUserContentHelper.Companion`).
      - Recalculated DEX Adler-32 and SHA-1 headers and APK Central Directory CRC-32.
   2. Added standalone lightweight C helper `sqlite_query` (`tools/sqlite_query.c`) that directly queries SQLite via `dlopen("libsqlite.so")` with zero dependencies.
@@ -90,6 +90,23 @@ This document details every major bug encountered during the porting and bring-u
      - When `lockscreen.qu.ui.type == 6`: sets `PASSWORD_LENGTH=6`, `keyguard_quick_unlock=1`, and writes `lockscreen.pin_password_length=6`. Keyguard presents 6 dots and instantly unlocks on the 6th digit.
      - When an alphanumeric or custom-length PIN is set: sets `keyguard_quick_unlock=0`, restoring the standard numeric/alphanumeric keyboard with the Enter/OK button.
   4. Injected `persist.sys.ls.ui_type=0` into `build.prop` so Keyguard reads `PASSWORD_LENGTH` from the first zygote bootstrap.
+
+---
+
+### Bug 13: Native ColorOS SystemUI Double Tap to Sleep (DT2S)
+* **Symptom**: Double tap to sleep requires background shell script polling or consumes CPU overhead.
+* **Root Cause**: Stock ColorOS SystemUI natively supports double-tap to sleep on lockscreen and status bar when `oplus.software.gesture.double_tap_to_sleep=true` and `sys.oplus.dt2s.enabled=1` are exported.
+* **Fix**: Enabled native feature XML flags and SystemUI broadcast receivers, purging background shell loops.
+
+---
+
+### Bug 14: FRP State Blocker After Recovery Format Data
+* **Symptom**: After formatting `/data` in custom recovery (Axion OS Recovery / OrangeFox), apps cannot be installed (`Can't install packages while in frp` / `INSTALL_FAILED_OEM_FRP_LOCKED`), and screen lock credentials cannot be changed (`SecurityException: Cannot change credential while factory reset protection is active`).
+* **Root Cause**: Factory resetting from recovery formats `/data` and `/cache`, but leaves `/dev/block/bootdevice/by-name/frp` (`/dev/block/sda5`) intact. `PersistentDataBlockService` detects active credential handles and triggers full anti-theft lockdown mode.
+* **Fix**:
+  1. Boot into fastboot / bootloader mode with unlocked bootloader (`orange`).
+  2. Execute `fastboot erase frp`.
+  3. Reboot into system. `PersistentDataBlockService` reads all zeroes, clearing `FRP state` to `false` and lifting all package installation restrictions.
 
 ---
 

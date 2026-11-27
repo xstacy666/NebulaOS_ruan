@@ -6,3 +6,6 @@ allow system_app sysfs_zram:file r_file_perms;
 
 set_prop(system_app, vendor_pen_prop)
 get_prop(system_app, vendor_pen_active_prop)
+
+# Device Connect (OPlus Synergy / Multi-Screen Connect)
+allow system_app default_android_hwservice:hwservice_manager find;
