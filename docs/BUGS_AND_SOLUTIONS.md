@@ -136,3 +136,25 @@ This document details every major bug encountered during the porting and bring-u
 * **Fix**:
   1. Added SELinux permission allowing `system_app` access to `default_android_hwservice` (`IDmtpService`).
   2. Enabled direct intent target `com.oplus.wirelesssettings/.DeviceConnectActivity` via `settings_feature_config.xml`.
+
+
+---
+
+### Bug 13: Double Tap to Sleep (DT2S) on Lockscreen Not Working
+- **Symptom**: Double tapping empty area on lockscreen failed to turn off the screen.
+- **Root Cause**:
+  1. ColorOS SystemUI implements `com.oplus.systemui.keyguard.gesture.OplusDoubleClickSleep` natively.
+  2. It checks `BlackScreenGestureUtil.isSupportNewDoubleTap(Context)` which reads `Settings.Global.gesture_newdoubletap_support`. This was not set (`null`), disabling the new gesture pipeline.
+  3. It reads `oplus_customize_gesture_double_touch_off` from `Settings.Secure`, but ColorOS default had placed it in `Settings.System`, throwing a `SettingNotFoundException` and defaulting the switch to `false`.
+  4. A legacy `dt2s.sh` script attempted to intercept `getevent` touches in bash and call `dumpsys window` on every tap down, introducing 800ms+ IPC latency that broke tap intervals.
+- **Solution**:
+  1. Purged the high-latency `dt2s.sh` shell loop and replaced it with an instant stub (`exit 0`).
+  2. Initialized all ColorOS native DT2S / DT2W keys across `global`, `secure`, and `system` namespaces in `dt2w_service.sh`:
+     - `Settings.Global.gesture_newdoubletap_support = 1`
+     - `Settings.Secure.oplus_customize_gesture_double_touch_off = 1`
+     - `Settings.Secure.oplus_customize_gesture_double_touch_on = 1`
+     - `Settings.Secure.oplus_customize_gesture_double_touch = 1`
+     - `Settings.Secure.oplus_customize_gesture_open_type = 1`
+     - `Settings.Secure.launcher_double_click_lock = 1`
+     - `Settings.Secure.oplus_customize_gesture_double_touch_off_launcher = 1`
+  3. Native `OplusDoubleClickSleep` now receives gestures directly via `GestureDetector` in SystemUI and invokes `PowerManager.goToSleep()` with zero delay.
